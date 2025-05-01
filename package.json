@@ -1,8 +1,8 @@
 {
   "name": "yemekhane-electron-gui",
-  "productName": "yemekhane-electron-gui",
+  "productName": "Yemekhane Yemek Tanıma Sistemi",
   "version": "1.0.0",
-  "description": "My Electron application description",
+  "description": "Yapay zeka tabanlı yemek tanıma sistemi",
   "main": "src/index.js",
   "scripts": {
     "start": "electron-forge start",
@@ -11,14 +11,19 @@
     "publish": "electron-forge publish",
     "lint": "echo \"No linting configured\""
   },
-  "keywords": [],
+  "keywords": [
+    "yemek tanıma",
+    "yapay zeka",
+    "elektronik kafeterya"
+  ],
   "author": {
     "name": "Blu3Line",
     "email": "celal.erkuss@gmail.com"
   },
   "license": "MIT",
   "dependencies": {
-    "electron-squirrel-startup": "^1.0.1"
+    "electron-squirrel-startup": "^1.0.1",
+    "electron-store": "^8.1.0"
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.8.0",

@@ -1,0 +1,14 @@
+/* Main CSS File - Basitleştirilmiş Yapı */
+
+/* Temel stil dosyası */
+@import url('base.css');
+
+/* UI bileşenleri (header, footer, buttons, tabs) */
+@import url('ui-components.css');
+
+/* Uygulama özellikleri (kamera, yemek listesi ve detaylar) */
+@import url('app-features.css');
+
+/* Sayfa özel stilleri */
+@import url('pages/home.css');
+@import url('pages/contact.css');
