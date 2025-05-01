@@ -1,0 +1,354 @@
+/* ======================================
+   UI COMPONENTS
+   ====================================== */
+
+/* ------------------------------
+   Header Component
+   ------------------------------ */
+.site-header {
+    background-color: #009879; /* Yeşil arka plan rengi */
+    color: var(--white);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    position: relative;
+    width: 100%;
+}
+
+.header-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--space-lg);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 60px;
+}
+
+.logo a {
+    color: var(--white);
+    font-size: var(--font-large);
+    font-weight: 700;
+    text-decoration: none;
+    letter-spacing: 0.5px;
+}
+
+.main-nav ul {
+    display: flex;
+    gap: var(--space-xl);
+    align-items: center;
+}
+
+.main-nav ul li a {
+    color: var(--white);
+    font-weight: 500;
+    padding: var(--space-sm) var(--space-sm);
+    text-decoration: none;
+    transition: all var(--transition-normal) ease;
+    position: relative;
+}
+
+.main-nav ul li a:hover,
+.main-nav ul li a.active {
+    color: #e6fffa; /* Hafif açık renk hover efekti */
+}
+
+.main-nav ul li a::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background-color: var(--white);
+    transition: width var(--transition-normal) ease;
+}
+
+.main-nav ul li a:hover::after,
+.main-nav ul li a.active::after {
+    width: 100%;
+}
+
+/* Responsive Header */
+@media (max-width: 768px) {
+    .header-container {
+        flex-direction: column;
+        height: auto;
+        padding: var(--space-sm);
+    }
+    
+    .logo {
+        margin-bottom: var(--space-sm);
+    }
+    
+    .main-nav ul {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: var(--space-md);
+    }
+}
+
+/* ------------------------------
+   Footer Component
+   ------------------------------ */
+footer {
+    background-color: #1c2536;
+    color: var(--white);
+    padding: var(--space-xl) 0 0 0;
+    margin-top: var(--space-xl);
+}
+
+.footer-container {
+    display: flex;
+    justify-content: space-between;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--space-xl);
+}
+
+.footer-section {
+    flex: 1;
+    padding: 0 var(--space-md);
+    margin-bottom: var(--space-lg);
+}
+
+.footer-section h3 {
+    margin-bottom: var(--space-md);
+    position: relative;
+    font-size: var(--font-medium);
+    color: var(--white);
+}
+
+.footer-section p {
+    color: #c0c5d0;
+    margin-bottom: var(--space-sm);
+    font-size: var(--font-small);
+    line-height: 1.5;
+}
+
+.copyright {
+    background-color: rgba(0, 0, 0, 0.2);
+    padding: var(--space-md);
+    text-align: center;
+    font-size: var(--font-small);
+}
+
+/* ------------------------------
+   Button Styles
+   ------------------------------ */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-sm) var(--space-md);
+    background-color: var(--primary-color);
+    color: var(--white);
+    border-radius: var(--border-radius-sm);
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color var(--transition-normal) ease, 
+                transform var(--transition-fast) ease;
+}
+
+.btn:hover {
+    background-color: #007d68;
+    transform: translateY(-2px);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+.btn i {
+    margin-right: var(--space-sm);
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+}
+
+.btn-secondary:hover {
+    background-color: #5a6268;
+}
+
+.btn-warning {
+    background-color: var(--warning-color);
+}
+
+.btn-warning:hover {
+    background-color: #e0a800;
+}
+
+.btn-danger {
+    background-color: var(--danger-color);
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+}
+
+.btn-success {
+    background-color: var(--success-color);
+}
+
+.btn-success:hover {
+    background-color: #218838;
+}
+
+.btn-outline {
+    background-color: transparent;
+    border: 1px solid var(--primary-color);
+    color: var(--primary-color);
+}
+
+.btn-outline:hover {
+    background-color: var(--primary-color);
+    color: var(--white);
+}
+
+.btn-lg {
+    padding: var(--space-md) var(--space-lg);
+    font-size: var(--font-medium);
+}
+
+.btn-sm {
+    padding: var(--space-xs) var(--space-sm);
+    font-size: var(--font-small);
+}
+
+.btn-block {
+    display: block;
+    width: 100%;
+}
+
+.btn-group {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.btn-group-vertical {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+/* Button disabled state */
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn:disabled:hover {
+    background-color: var(--primary-color);
+    transform: none;
+}
+
+/* ------------------------------
+   Tabs Component
+   ------------------------------ */
+.tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: var(--space-md);
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+.tab-btn {
+    padding: var(--space-sm) var(--space-md);
+    border: none;
+    background: none;
+    font-weight: 500;
+    color: #666;
+    cursor: pointer;
+    transition: all var(--transition-fast) ease;
+    border-bottom: 2px solid transparent;
+}
+
+.tab-btn:hover {
+    color: var(--primary-color);
+}
+
+.tab-btn.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+}
+
+.tab-content {
+    display: none;
+    padding: var(--space-md) 0;
+    animation: fadeIn 0.5s ease;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Sayfa düzeni için ek düzenlemeler */
+.main-container {
+    display: flex;
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: var(--space-xl);
+    padding: 0 var(--space-md);
+}
+
+.left-column {
+    flex: 1.2;
+}
+
+.right-column {
+    flex: 0.8;
+}
+
+.results-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xl);
+}
+
+/* Animation */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive Design - Header & Footer */
+@media (max-width: 768px) {
+    header {
+        flex-direction: column;
+        padding: var(--space-md);
+    }
+    
+    nav ul {
+        margin-top: var(--space-md);
+    }
+    
+    nav ul li {
+        margin-left: var(--space-md);
+        margin-right: var(--space-md);
+    }
+    
+    .footer-container {
+        flex-direction: column;
+    }
+    
+    .footer-section {
+        margin-bottom: var(--space-xl);
+    }
+    
+    .tabs-vertical {
+        float: none;
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        margin-bottom: var(--space-md);
+        margin-right: 0;
+    }
+}

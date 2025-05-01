@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yemekhane Yemek Tanıma Sistemi</title>
+    <!-- CSS dosyalarını içe aktar -->
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body data-page-type="home">
+    <!-- Header Bölümü -->
+    <header class="site-header">
+        <div class="header-container">
+            <div class="logo">
+                <a href="#">Yemek Tanıma</a>
+            </div>
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="#" class="active">Ana Sayfa</a></li>
+                    <li><a href="#">Hakkımızda</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <!-- Ana İçerik -->
+        <h2 class="page-title">Tepsi Yemek Tanıma Sistemi</h2>
+
+        <div class="main-container">
+            <div class="left-column">
+                <!-- Kamera Bölümü -->
+                <div class="camera-section">
+                    <div class="camera-header">
+                        <h3>Kamera Görüntüsü</h3>
+                    </div>
+                    
+                    <div class="camera-tab-navigation">
+                        <button id="takePhotoTab" class="camera-tab active"><i class="fas fa-camera"></i> Fotoğraf Çek</button>
+                        <button id="uploadImageTab" class="camera-tab"><i class="fas fa-upload"></i> Resim Yükle</button>
+                        <button id="realTimeTab" class="camera-tab"><i class="fas fa-video"></i> Gerçek Zamanlı</button>
+                    </div>
+                    
+                    <div class="camera-content">
+                        <!-- Fotoğraf çekme bölümü -->
+                        <div class="camera-tab-content" id="photoTabContent">
+                            <div class="camera-view" id="photoCameraView">
+                                <div class="camera-placeholder">
+                                    <i class="fas fa-camera"></i>
+                                    <p>Fotoğraf çekmek için kamerayı başlatın</p>
+                                </div>
+                                <video id="photoVideo" autoplay playsinline></video>
+                            </div>
+                            <div class="camera-controls">
+                                <button id="startPhotoCamera" class="btn btn-primary">
+                                    <i class="fas fa-play"></i> Kamerayı Başlat
+                                </button>
+                                <button id="capturePhotoBtn" class="btn btn-success" style="display:none">
+                                    <i class="fas fa-camera"></i> Fotoğraf Çek
+                                </button>
+                                <button id="stopPhotoCamera" class="btn btn-danger" style="display:none">
+                                    <i class="fas fa-stop"></i> Kamerayı Durdur
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Resim yükleme bölümü -->
+                        <div class="camera-tab-content" id="uploadTabContent" style="display:none">
+                            <div class="camera-view upload-zone" id="uploadCameraView">
+                                <div class="upload-placeholder" id="uploadPlaceholder">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                    <p>Resmi buraya sürükleyin veya seçmek için tıklayın</p>
+                                    <p class="small">PNG, JPG, JPEG (max. 10MB)</p>
+                                </div>
+                                <img id="uploadedImage" style="display:none">
+                            </div>
+                            <div class="camera-controls">
+                                <button id="chooseFileBtn" class="btn btn-primary">
+                                    <i class="fas fa-folder-open"></i> Dosya Seç
+                                </button>
+                                <input type="file" id="fileInput" accept="image/*" style="display:none">
+                            </div>
+                        </div>
+                        
+                        <!-- Gerçek zamanlı bölümü -->
+                        <div class="camera-tab-content" id="realtimeTabContent" style="display:none">
+                            <div class="camera-view" id="realtimeCameraView">
+                                <div class="camera-placeholder" id="realtimePlaceholder">
+                                    <i class="fas fa-video"></i>
+                                    <p>Gerçek zamanlı tespit için kamerayı başlatın</p>
+                                </div>
+                                <video id="realtimeVideo" autoplay playsinline></video>
+                                <div class="detection-overlay" id="detectionOverlay" style="display:none">
+                                    Sistem yemekleri otomatik olarak tespit ediyor...
+                                </div>
+                            </div>
+                            <div class="camera-controls">
+                                <button id="startRealtimeBtn" class="btn btn-primary">
+                                    <i class="fas fa-play"></i> Kamerayı Başlat
+                                </button>
+                                <button id="stopRealtimeBtn" class="btn btn-danger" style="display:none">
+                                    <i class="fas fa-stop"></i> Kamerayı Durdur
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <canvas id="photoCanvas" style="display:none"></canvas>
+                    <div class="camera-result" id="resultSection" style="display:none">
+                        <div class="result-header">
+                            <h4>Çekilmiş Fotoğraf</h4>
+                            <button id="backToCamera" class="btn btn-outline">
+                                <i class="fas fa-arrow-left"></i> Kameraya Dön
+                            </button>
+                        </div>
+                        <div class="result-image-container">
+                            <img id="resultImage" alt="Çekilmiş fotoğraf">
+                        </div>
+                        <div class="camera-controls">
+                            <button id="analyzePhotoBtn" class="btn btn-success">
+                                <i class="fas fa-search"></i> Yemekleri Tespit Et
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="right-column">
+                <div class="results-section">
+                    <!-- Yemek Listesi Bölümü -->
+                    <div class="food-list">
+                        <div class="food-list-header">
+                            <h4>Tepsi İçeriği</h4>
+                        </div>
+                        <div class="food-items-container">
+                            <ul id="detectedItems">
+                                <!-- Tespit edilen yemekler buraya eklenecek -->
+                            </ul>
+                        </div>
+                        <div class="totals">
+                            <div class="total-price">
+                                <span>Toplam Ücret:</span>
+                                <span id="totalPrice">0.00 ₺</span>
+                            </div>
+                            <div class="total-calories">
+                                <span>Toplam Kalori:</span>
+                                <span id="totalCalories">0 kcal</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Yemek Detay Bölümü -->
+                    <div class="food-details" id="foodDetails">
+                        <div class="food-details-header">
+                            <h3 id="selectedFoodName">Yemek Seçilmedi</h3>
+                        </div>
+                        
+                        <div class="food-image-container">
+                            <img id="selectedFoodImage" src="" alt="Seçilen Yemek" class="food-large-image">
+                        </div>
+                        
+                        <div class="confidence">
+                            <span>Tanıma Güveni</span>
+                            <div class="progress-bar">
+                                <div class="progress" id="confidenceBar" style="width: 0%"></div>
+                            </div>
+                            <span id="confidenceValue">0%</span>
+                        </div>
+
+                        <div class="details-grid">
+                            <div class="detail-card price">
+                                <h4>Fiyat</h4>
+                                <p id="foodPrice">0.00 ₺</p>
+                            </div>
+                            <div class="detail-card calories">
+                                <h4>Kalori</h4>
+                                <p id="foodCalories">0 kcal</p>
+                            </div>
+                        </div>
+
+                        <div class="tabs">
+                            <button class="tab-btn active" data-tab="nutrition">Besin Değerleri</button>
+                            <button class="tab-btn" data-tab="ingredients">İçindekiler</button>
+                            <button class="tab-btn" data-tab="allergens">Alerjenler</button>
+                        </div>
+
+                        <div class="tab-content active" id="nutrition">
+                            <div class="nutrition-grid">
+                                <div class="nutrition-item protein">
+                                    <h5>Protein</h5>
+                                    <p id="proteinValue">0g</p>
+                                </div>
+                                <div class="nutrition-item carbs">
+                                    <h5>Karbonhidrat</h5>
+                                    <p id="carbsValue">0g</p>
+                                </div>
+                                <div class="nutrition-item fat">
+                                    <h5>Yağ</h5>
+                                    <p id="fatValue">0g</p>
+                                </div>
+                                <div class="nutrition-item fiber">
+                                    <h5>Lif</h5>
+                                    <p id="fiberValue">0g</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-content" id="ingredients">
+                            <ul id="ingredientsList">
+                                <li>Lütfen bir yemek seçin</li>
+                            </ul>
+                        </div>
+
+                        <div class="tab-content" id="allergens">
+                            <ul id="allergensList">
+                                <li>Lütfen bir yemek seçin</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer Bölümü -->
+    <footer>
+        <div class="footer-container">
+            <div class="footer-section">
+                <h3>Kafeterya</h3>
+                <p>Yapay zeka destekli yemek tanıma sistemi ile hızlı ve doğru hizmet.</p>
+            </div>
+            
+            <div class="footer-section">
+                <h3>İletişim</h3>
+                <p>Üniversite Kampüsü, Ana Bina</p>
+                <p>Telefon: (0212) 123 4567</p>
+                <p>E-posta: info@test.com</p>
+            </div>
+            
+            <div class="footer-section">
+                <h3>Çalışma Saatleri</h3>
+                <p>Pazartesi - Cuma: 08:00 - 20:00</p>
+                <p>Cumartesi: 09:00 - 17:00</p>
+                <p>Pazar: Kapalı</p>
+            </div>
+        </div>
+        <div class="copyright">
+            <p>&copy; 2025 Yemekhane Yemek Tanıma Sistemi. Tüm hakları saklıdır.</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript Modülleri -->
+    <script src="js/modules/utils.js"></script>
+    <script src="js/modules/tabs.js"></script>
+    <script src="js/modules/camera.js"></script>
+    <script src="js/modules/food_detection.js"></script>
+    <script src="js/modules/food_list.js"></script>
+    <script src="js/modules/food_details.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
