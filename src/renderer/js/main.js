@@ -1,5 +1,6 @@
 /**
  * Ana JavaScript Dosyası - Electron Versiyonu
+ * WebSocket entegrasyonu ile güncellendi
  * Tüm modülleri birleştirir ve uygulamayı başlatır
  */
 document.addEventListener('DOMContentLoaded', async function() {
@@ -32,6 +33,75 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (pageType === 'home') {
         // Ana sayfada çalışacak modüller (kamera, yemek tanıma, vb.)
         console.log('Ana sayfa modülleri başlatılıyor...');
+        
+        // WebSocket bağlantı durumu elementi
+        const connectionStatusElement = document.getElementById('websocketStatus');
+        
+        // WebSocket Manager'ı başlat (varsa)
+        let webSocketReady = false;
+        if (typeof WebSocketManager !== 'undefined') {
+            WebSocketManager.init({
+                serverUrl: 'ws://localhost:8765',
+                connectionStatusElement: connectionStatusElement,
+                onConnect: () => {
+                    console.log('WebSocket bağlantısı kuruldu');
+                    // Bağlantı kurulduğunda UI'ı güncelle
+                    const wsConnectBtn = document.getElementById('wsConnectBtn');
+                    if (wsConnectBtn) {
+                        wsConnectBtn.textContent = 'Bağlantıyı Kes';
+                        wsConnectBtn.classList.remove('btn-primary');
+                        wsConnectBtn.classList.add('btn-danger');
+                    }
+                },
+                onDisconnect: () => {
+                    console.log('WebSocket bağlantısı kesildi');
+                    // Bağlantı kesildiğinde UI'ı güncelle
+                    const wsConnectBtn = document.getElementById('wsConnectBtn');
+                    if (wsConnectBtn) {
+                        wsConnectBtn.textContent = 'Bağlan';
+                        wsConnectBtn.classList.remove('btn-danger');
+                        wsConnectBtn.classList.add('btn-primary');
+                    }
+                },
+                onError: (error, type) => {
+                    console.error(`WebSocket hatası (${type}):`, error);
+                }
+            });
+            
+            // WebSocket bağlantı butonu
+            const wsConnectBtn = document.getElementById('wsConnectBtn');
+            if (wsConnectBtn) {
+                wsConnectBtn.addEventListener('click', async () => {
+                    if (WebSocketManager.isConnected()) {
+                        await WebSocketManager.disconnect();
+                    } else {
+                        try {
+                            await WebSocketManager.connect();
+                        } catch (error) {
+                            console.error('WebSocket bağlantı hatası:', error);
+                            alert('WebSocket sunucusuna bağlanılamadı. Python sunucusunun çalıştığından emin olun.');
+                        }
+                    }
+                });
+                
+                // Varsayılan olarak bağlanmayı dene
+                try {
+                    await WebSocketManager.connect();
+                    webSocketReady = true;
+                } catch (error) {
+                    console.warn('Otomatik WebSocket bağlantısı kurulamadı:', error);
+                }
+            }
+        }
+        
+        // Görselleştirme modülünü başlat (varsa)
+        if (typeof VisualizationModule !== 'undefined') {
+            VisualizationModule.init({
+                boxLineWidth: 2,
+                fontSize: 14,
+                segmentOpacity: 0.3
+            });
+        }
         
         // Yemek tanıma modülünü başlat
         let foodDetectionModuleReady = false;
@@ -117,5 +187,33 @@ document.addEventListener('DOMContentLoaded', async function() {
                 resultControls.appendChild(saveButton);
             }
         }
+    }
+    
+    // Confidence slider dinleyicisi
+    const confidenceSlider = document.getElementById('confidenceSlider');
+    const confidenceValue = document.getElementById('confidenceValue');
+    
+    if (confidenceSlider && confidenceValue) {
+        // Başlangıç değerini ayarla
+        if (foodDetectionModuleReady) {
+            const settings = FoodDetectionModule.getSettings();
+            confidenceSlider.value = settings.confidenceThreshold / 100;
+            confidenceValue.textContent = `${settings.confidenceThreshold}%`;
+        } else {
+            confidenceSlider.value = 0.5;
+            confidenceValue.textContent = '50%';
+        }
+        
+        // Değişiklik dinleyicisi
+        confidenceSlider.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            confidenceValue.textContent = `${Math.round(value * 100)}%`;
+            
+            if (foodDetectionModuleReady) {
+                FoodDetectionModule.updateSettings({
+                    confidenceThreshold: Math.round(value * 100)
+                });
+            }
+        });
     }
 });

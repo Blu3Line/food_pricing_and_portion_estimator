@@ -1,5 +1,6 @@
 /**
  * Kamera İşlevselliği Modülü - Electron Versiyonu
+ * WebSocket entegrasyonu ile güncellendi
  */
 const CameraModule = (function() {
     // Özel değişkenler
@@ -14,6 +15,10 @@ const CameraModule = (function() {
     let currentTab = 'photo'; // 'photo', 'upload', 'realtime'
     let fileInput = null;
     let currentConstraints = {}; // Kamera kısıtlamaları
+    let websocketEnabled = false; // WebSocket entegrasyonu aktif mi?
+    let realtimeProcessing = false; // Gerçek zamanlı işlem devam ediyor mu?
+    let realtimeAnalysisInterval = null; // Gerçek zamanlı analiz zamanlayıcısı
+    let confidenceThreshold = 0.5; // YOLO güven eşiği
 
     /**
      * Modülü başlatır ve gerekli DOM elementlerini yapılandırır
@@ -85,6 +90,22 @@ const CameraModule = (function() {
 
         // Başlangıçta varsayılan sekmeyi aktifleştir
         switchTab('photo');
+
+        // WebSocket entegrasyonunu kontrol et
+        websocketEnabled = typeof WebSocketManager !== 'undefined';
+        
+        // Confidence slider dinleyicisini ekle
+        const confidenceSlider = document.getElementById('confidenceSlider');
+        if (confidenceSlider) {
+            confidenceSlider.addEventListener('input', (e) => {
+                confidenceThreshold = parseFloat(e.target.value);
+                // Değer göstergesini güncelle
+                const confidenceValue = document.getElementById('confidenceValue');
+                if (confidenceValue) {
+                    confidenceValue.textContent = `${Math.round(confidenceThreshold * 100)}%`;
+                }
+            });
+        }
 
         // Electron ortamını kontrol et ve kamera listesini getir
         if (window.environment && window.environment.isElectron) {
@@ -262,6 +283,16 @@ const CameraModule = (function() {
         
         if (analyzePhotoBtn) {
             analyzePhotoBtn.addEventListener('click', analyzePhoto);
+        }
+        
+        // Confidence slider
+        const confidenceSlider = document.getElementById('confidenceSlider');
+        if (confidenceSlider) {
+            confidenceSlider.value = confidenceThreshold;
+            const confidenceValue = document.getElementById('confidenceValue');
+            if (confidenceValue) {
+                confidenceValue.textContent = `${Math.round(confidenceThreshold * 100)}%`;
+            }
         }
     };
 
@@ -483,9 +514,21 @@ const CameraModule = (function() {
             document.getElementById('realtimePlaceholder').style.display = 'none';
             document.getElementById('startRealtimeBtn').style.display = 'none';
             document.getElementById('stopRealtimeBtn').style.display = 'inline-flex';
-            document.getElementById('detectionOverlay').style.display = 'block';
             
-            // Gerçek zamanlı analiz burada yapılabilir
+            // Overlay canvas, eğer yoksa oluştur
+            let detectionOverlay = document.getElementById('detectionOverlay');
+            if (!detectionOverlay) {
+                detectionOverlay = document.createElement('canvas');
+                detectionOverlay.id = 'detectionOverlay';
+                detectionOverlay.className = 'detection-overlay';
+                const realtimeCameraView = document.getElementById('realtimeCameraView');
+                if (realtimeCameraView) {
+                    realtimeCameraView.appendChild(detectionOverlay);
+                }
+            }
+            detectionOverlay.style.display = 'block';
+            
+            // Gerçek zamanlı analiz başlat
             startRealtimeAnalysis();
         } catch (err) {
             console.error("Kamera erişim hatası: ", err);
@@ -524,9 +567,14 @@ const CameraModule = (function() {
             document.getElementById('realtimePlaceholder').style.display = 'flex';
             document.getElementById('startRealtimeBtn').style.display = 'inline-flex';
             document.getElementById('stopRealtimeBtn').style.display = 'none';
-            document.getElementById('detectionOverlay').style.display = 'none';
             
-            // Gerçek zamanlı analiz durduruluyor
+            // Overlay'i gizle
+            const detectionOverlay = document.getElementById('detectionOverlay');
+            if (detectionOverlay) {
+                detectionOverlay.style.display = 'none';
+            }
+            
+            // Gerçek zamanlı analiz durdur
             stopRealtimeAnalysis();
         } catch (err) {
             console.error("Kamera durdurma hatası: ", err);
@@ -535,7 +583,7 @@ const CameraModule = (function() {
     
     /**
      * Electron aracılığıyla yüklenen resmi işler
-     * @param {string} imageData - Base64 formatında resim verisini
+     * @param {string} imageData - Base64 formatında resim verisi
      * @param {string} filePath - Dosya yolu
      */
     const handleElectronImage = (imageData, filePath) => {
@@ -598,32 +646,80 @@ const CameraModule = (function() {
      * Fotoğrafı analiz eder
      */
     const analyzePhoto = async () => {
-        // Yükleme göstergesi eklenebilir
+        // Yükleme göstergesi
+        const detectedItemsEl = document.getElementById('detectedItems');
+        if (detectedItemsEl) {
+            detectedItemsEl.innerHTML = '<li class="loading-item"><div class="loading-spinner"></div> Yemekler tespit ediliyor...</li>';
+        }
         
-        // Electron ortamında özel API kullan
-        if (window.electronAPI && window.electronAPI.detectFood) {
+        // WebSocket bağlantısı var mı kontrol et
+        if (websocketEnabled && WebSocketManager.isConnected()) {
             try {
-                // UI'a yükleme durumu göster
-                const detectedItemsEl = document.getElementById('detectedItems');
-                if (detectedItemsEl) {
-                    detectedItemsEl.innerHTML = '<li class="loading-item"><div class="loading-spinner"></div> Yemekler tespit ediliyor...</li>';
-                }
+                // Resim verilerini WebSocket üzerinden gönder
+                const response = await WebSocketManager.sendImage(
+                    resultImage.src, 
+                    'image', 
+                    { confidence: confidenceThreshold }
+                );
                 
-                // Electron API'si ile resim analizi
-                const detectedFoods = await window.electronAPI.detectFood(resultImage.src);
-                
-                // Tespit sonuçlarını işle
-                if (imageAnalysisCallback) {
-                    imageAnalysisCallback(detectedFoods);
+                if (response.success) {
+                    // Sonuçları görselleştir
+                    visualizeResults(resultImage, response.data);
+                    
+                    // Sonuçları callback'e aktar
+                    if (imageAnalysisCallback) {
+                        imageAnalysisCallback(response);
+                    }
+                } else {
+                    console.error('Yemek tespiti hatası:', response.error);
+                    if (detectedItemsEl) {
+                        detectedItemsEl.innerHTML = `<li class="error-item">Tespit hatası: ${response.error}</li>`;
+                    }
                 }
             } catch (error) {
-                console.error('Yemek tespiti hatası:', error);
-                alert('Yemek tespiti sırasında bir hata oluştu. Lütfen tekrar deneyin.');
+                console.error('WebSocket ile yemek tespiti hatası:', error);
+                if (detectedItemsEl) {
+                    detectedItemsEl.innerHTML = '<li class="error-item">Tespit sırasında bir hata oluştu. Bağlantınızı kontrol edin.</li>';
+                }
+                
+                // Hata durumunda Electron API'ye geri dön (eğer varsa)
+                if (window.electronAPI && window.electronAPI.detectFood) {
+                    fallbackToElectronAPI();
+                }
             }
+        } else if (window.electronAPI && window.electronAPI.detectFood) {
+            // WebSocket bağlantısı yoksa Electron API kullan
+            fallbackToElectronAPI();
         } else {
-            // Tarayıcı ortamında normal callback kullan
+            // Ne WebSocket ne de Electron API yoksa hata göster
+            console.error('Yemek tespiti için hiçbir mekanizma bulunamadı');
+            if (detectedItemsEl) {
+                detectedItemsEl.innerHTML = '<li class="error-item">Tespit sistemi kullanılamıyor. Lütfen bağlantı durumunu kontrol edin.</li>';
+            }
+        }
+    };
+    
+    /**
+     * Yedek olarak Electron API'yi kullanır
+     */
+    const fallbackToElectronAPI = async () => {
+        try {
+            const detectedItemsEl = document.getElementById('detectedItems');
+            if (detectedItemsEl) {
+                detectedItemsEl.innerHTML += '<li>WebSocket bağlantısı kurulamadı, Electron API üzerinden tespit ediliyor...</li>';
+            }
+            
+            const detectedFoods = await window.electronAPI.detectFood(resultImage.src);
+            
+            // Tespit sonuçlarını işle
             if (imageAnalysisCallback) {
-                imageAnalysisCallback(resultImage.src);
+                imageAnalysisCallback(detectedFoods);
+            }
+        } catch (error) {
+            console.error('Yemek tespiti hatası:', error);
+            const detectedItemsEl = document.getElementById('detectedItems');
+            if (detectedItemsEl) {
+                detectedItemsEl.innerHTML = '<li class="error-item">Tespit sırasında bir hata oluştu. Lütfen tekrar deneyin.</li>';
             }
         }
     };
@@ -650,40 +746,12 @@ const CameraModule = (function() {
     /**
      * Gerçek zamanlı analizi başlatır
      */
-    let realtimeAnalysisInterval = null;
     const startRealtimeAnalysis = () => {
-        realtimeAnalysisInterval = setInterval(async () => {
-            if (!realtimeStreaming) return;
-            
-            // Belirli aralıklarla kare yakala
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = realtimeVideo.videoWidth;
-            tempCanvas.height = realtimeVideo.videoHeight;
-            
-            const context = tempCanvas.getContext('2d');
-            context.drawImage(realtimeVideo, 0, 0, tempCanvas.width, tempCanvas.height);
-            
-            const frameData = tempCanvas.toDataURL('image/png');
-            
-            // Electron ortamında özel API kullan
-            if (window.electronAPI && window.electronAPI.detectFood) {
-                try {
-                    const detectedFoods = await window.electronAPI.detectFood(frameData);
-                    
-                    // Tespit sonuçlarını işle
-                    if (imageAnalysisCallback) {
-                        imageAnalysisCallback(detectedFoods);
-                    }
-                } catch (error) {
-                    console.error('Gerçek zamanlı tespit hatası:', error);
-                }
-            } else {
-                // Tarayıcı ortamında normal callback kullan
-                if (imageAnalysisCallback) {
-                    imageAnalysisCallback(frameData);
-                }
-            }
-        }, 3000); // 3 saniyede bir kare analiz et
+        if (realtimeAnalysisInterval) {
+            clearInterval(realtimeAnalysisInterval);
+        }
+        
+        realtimeAnalysisInterval = setInterval(captureAndAnalyzeRealtimeFrame, 1500); // 1.5 saniyede bir kare analiz et
     };
     
     /**
@@ -695,6 +763,189 @@ const CameraModule = (function() {
             realtimeAnalysisInterval = null;
         }
     };
+    
+    /**
+     * Gerçek zamanlı kare yakalar ve analiz eder
+     */
+    const captureAndAnalyzeRealtimeFrame = async () => {
+        if (!realtimeStreaming || realtimeProcessing) return;
+        
+        realtimeProcessing = true;
+        
+        try {
+            // Geçici canvas oluştur
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = realtimeVideo.videoWidth;
+            tempCanvas.height = realtimeVideo.videoHeight;
+            
+            const context = tempCanvas.getContext('2d');
+            context.drawImage(realtimeVideo, 0, 0, tempCanvas.width, tempCanvas.height);
+            
+            const frameData = tempCanvas.toDataURL('image/jpeg');
+            
+            // WebSocket bağlantısı var mı kontrol et
+            if (websocketEnabled && WebSocketManager.isConnected()) {
+                try {
+                    // Kare verilerini WebSocket üzerinden gönder
+                    const response = await WebSocketManager.sendImage(
+                        frameData, 
+                        'webcam', 
+                        { confidence: confidenceThreshold }
+                    );
+                    
+                    // Deteksiyon overlay'i güncelle
+                    const detectionOverlay = document.getElementById('detectionOverlay');
+                    if (detectionOverlay) {
+                        if (response.success && response.data && response.data.length > 0) {
+                            // Overlay canvas boyutlarını ayarla
+                            detectionOverlay.width = realtimeVideo.videoWidth;
+                            detectionOverlay.height = realtimeVideo.videoHeight;
+                            
+                            // Tespitleri çiz
+                            drawDetections(detectionOverlay, response.data);
+                            
+                            // Callback'i çağır
+                            if (imageAnalysisCallback) {
+                                imageAnalysisCallback(response);
+                            }
+                        } else if (response.success) {
+                            // Tespit yoksa overlay'i temizle
+                            clearDetectionOverlay(detectionOverlay);
+                        }
+                    }
+                    
+                } catch (error) {
+                    console.error('Gerçek zamanlı tespit hatası:', error);
+                    // Hata durumunda sessizce devam et, bir sonraki kare için yeniden dene
+                }
+            } else if (window.electronAPI && window.electronAPI.detectFood) {
+                // WebSocket bağlantısı yoksa Electron API kullan
+                try {
+                    const detectedFoods = await window.electronAPI.detectFood(frameData);
+                    
+                    // Tespit sonuçlarını işle
+                    if (imageAnalysisCallback) {
+                        imageAnalysisCallback(detectedFoods);
+                    }
+                } catch (error) {
+                    console.error('Gerçek zamanlı Electron tespit hatası:', error);
+                }
+            }
+            
+        } catch (error) {
+            console.error('Kare yakalama hatası:', error);
+        } finally {
+            realtimeProcessing = false;
+        }
+    };
+    
+    /**
+     * Tespitleri overlay üzerine çizer
+     * @param {HTMLCanvasElement} canvas - Çizim yapılacak canvas
+     * @param {Array} detections - Tespit sonuçları
+     */
+    const drawDetections = (canvas, detections) => {
+        if (!canvas || !detections || !detections.length) return;
+        
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Her bir tespit için
+        for (const detection of detections) {
+            const { class: className, confidence, bbox, segments } = detection;
+            
+            // Sınıf için renk belirle
+            const color = getColorForClass(className);
+            
+            // Bounding box çiz
+            if (bbox && bbox.length === 4) {
+                const [x1, y1, x2, y2] = bbox;
+                
+                ctx.strokeStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+                
+                // Sınıf etiketi çiz
+                ctx.font = '14px Arial';
+                ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+                const label = `${className}: ${Math.round(confidence * 100)}%`;
+                ctx.fillText(label, x1, y1 > 20 ? y1 - 5 : y1 + 20);
+            }
+            
+            // Segmentasyon poligonu çiz
+            if (segments && segments.length > 2) {
+                ctx.beginPath();
+                ctx.moveTo(segments[0][0], segments[0][1]);
+                
+                for (let i = 1; i < segments.length; i++) {
+                    ctx.lineTo(segments[i][0], segments[i][1]);
+                }
+                
+                ctx.closePath();
+                ctx.strokeStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Yarı saydam dolgu
+                ctx.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0.3)`;
+                ctx.fill();
+            }
+        }
+    };
+    
+    /**
+     * Deteksiyon overlay'i temizler
+     * @param {HTMLCanvasElement} canvas - Temizlenecek canvas
+     */
+    const clearDetectionOverlay = (canvas) => {
+        if (!canvas) return;
+        
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    };
+    
+    /**
+     * Tespit sonuçlarını görselleştirir
+     * @param {HTMLImageElement} img - Sonuçların çizileceği resim elementi
+     * @param {Array} detections - Tespit sonuçları
+     */
+    const visualizeResults = (img, detections) => {
+        if (!img || !detections || !detections.length) return;
+        
+        // Canvas oluştur ve resmi kopyala
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        
+        // Tespitleri çiz
+        drawDetections(canvas, detections);
+        
+        // Resmi güncelle
+        img.src = canvas.toDataURL('image/png');
+    };
+    
+    /**
+     * Sınıf adına göre renk oluşturur
+     * @param {string} className - Sınıf adı
+     * @returns {Array} - RGB renk değerleri
+     */
+    const getColorForClass = (className) => {
+        // Basit hash fonksiyonu
+        let hash = 0;
+        for (let i = 0; i < className.length; i++) {
+            hash = className.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        
+        // RGB değerleri oluştur (0-255 arası)
+        const r = (hash & 0xFF);
+        const g = ((hash >> 8) & 0xFF);
+        const b = ((hash >> 16) & 0xFF);
+        
+        return [r, g, b];
+    };
 
     // Public API
     return {
@@ -704,7 +955,8 @@ const CameraModule = (function() {
         handleFiles,
         analyzePhoto,
         saveImage,
-        selectCamera
+        selectCamera,
+        visualizeResults
     };
 })();
 

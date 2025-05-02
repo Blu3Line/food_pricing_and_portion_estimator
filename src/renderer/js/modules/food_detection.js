@@ -1,5 +1,6 @@
 /**
  * Yemek Tanıma Modülü - Electron Versiyonu
+ * WebSocket entegrasyonu ile güncellendi
  */
 const FoodDetectionModule = (function() {
     // Örnek yemek veritabanı - Gerçek uygulamada bunlar API'den gelecek
@@ -144,7 +145,8 @@ const FoodDetectionModule = (function() {
 
     // Modül ayarları
     let settings = {
-        confidenceThreshold: 50 // Minimum güven eşiği (%)
+        confidenceThreshold: 50, // Minimum güven eşiği (%)
+        websocketEnabled: false  // WebSocket entegrasyonu aktif mi?
     };
 
     /**
@@ -152,6 +154,10 @@ const FoodDetectionModule = (function() {
      */
     const init = async () => {
         console.log("Yemek tanıma modülü başlatıldı");
+        
+        // WebSocket entegrasyonunu kontrol et
+        settings.websocketEnabled = typeof WebSocketManager !== 'undefined';
+        console.log(`WebSocket entegrasyonu: ${settings.websocketEnabled ? 'Aktif' : 'Pasif'}`);
         
         // Electron ortamında ayarları yükle
         if (window.environment && window.environment.isElectron && window.electronAPI) {
@@ -176,12 +182,28 @@ const FoodDetectionModule = (function() {
         // Yükleme göstergesi
         console.log("Yemek tespit ediliyor...");
         
-        // Electron ortamında, doğrudan tespit sonuçları olabilir
-        if (typeof imageDataOrResult === 'object' && !Array.isArray(imageDataOrResult)) {
-            return imageDataOrResult; // Zaten tespit sonuçları
+        // WebSocket yanıtını kontrol et (yeni entegrasyon için)
+        if (settings.websocketEnabled && 
+            typeof imageDataOrResult === 'object' && 
+            imageDataOrResult.hasOwnProperty('success')) {
+            
+            // Bu bir WebSocket yanıtı, doğrudan işle
+            console.log("WebSocket yanıtı işleniyor:", imageDataOrResult);
+            
+            if (imageDataOrResult.success) {
+                return processDetectionResults(imageDataOrResult.data);
+            } else {
+                console.error("WebSocket tespit hatası:", imageDataOrResult.error);
+                return []; // Boş liste döndür
+            }
         }
         
-        // Electron API'si varsa, tespit için kullan
+        // Electron ortamında, doğrudan tespit sonuçları olabilir (eski yöntem)
+        if (typeof imageDataOrResult === 'object' && !Array.isArray(imageDataOrResult) && !imageDataOrResult.hasOwnProperty('success')) {
+            return imageDataOrResult; // Zaten işlenmiş tespit sonuçları
+        }
+        
+        // Electron API'si varsa, tespit için kullan (WebSocket bağlantısı yoksa yedek)
         if (window.environment && window.environment.isElectron && window.electronAPI && window.electronAPI.detectFood) {
             try {
                 const detectedFoods = await window.electronAPI.detectFood(imageDataOrResult);
@@ -199,6 +221,81 @@ const FoodDetectionModule = (function() {
                 resolve(detectedFoods);
             }, 1500);
         });
+    };
+    
+    /**
+     * WebSocket'ten gelen ham tespit sonuçlarını işler
+     * @param {Array} detections - Ham tespit sonuçları
+     * @returns {Array} - İşlenmiş yemek nesneleri
+     */
+    const processDetectionResults = (detections) => {
+        if (!detections || !Array.isArray(detections) || detections.length === 0) {
+            return [];
+        }
+        
+        console.log(`${detections.length} tespit işleniyor`);
+        
+        const processedResults = [];
+        
+        // Her bir tespiti işle
+        for (let i = 0; i < detections.length; i++) {
+            const detection = detections[i];
+            
+            // Türkçe karakter ve boşluk problemlerini düzelt, küçük harfe dönüştür
+            const normalizedClass = detection.class.toLowerCase()
+                .replace(/\s+/g, '_')
+                .replace(/ğ/g, 'g')
+                .replace(/ü/g, 'u')
+                .replace(/ş/g, 's')
+                .replace(/ı/g, 'i')
+                .replace(/ö/g, 'o')
+                .replace(/ç/g, 'c');
+            
+            // Sınıfı veritabanında ara
+            let foodData = foodDatabase[normalizedClass];
+            
+            // Veritabanında yoksa veya bulunamazsa genel bir giriş oluştur
+            if (!foodData) {
+                console.log(`Sınıf '${detection.class}' veritabanında bulunamadı, otomatik oluşturuluyor`);
+                
+                foodData = {
+                    name: detection.class, // Orijinal sınıf adını kullan
+                    price: Math.floor(Math.random() * 30) + 15, // Rastgele fiyat (15-45 TL)
+                    calories: Math.floor(Math.random() * 200) + 100, // Rastgele kalori (100-300)
+                    nutrition: {
+                        protein: `${Math.floor(Math.random() * 20)}g`,
+                        carbs: `${Math.floor(Math.random() * 40)}g`,
+                        fat: `${Math.floor(Math.random() * 15)}g`,
+                        fiber: `${Math.floor(Math.random() * 5)}g`
+                    },
+                    ingredients: ["İçerik bilgisi henüz eklenmedi"],
+                    allergens: []
+                };
+            }
+            
+            // Her bir tespit için bağımsız bir nesne oluştur
+            const detectedFood = {
+                ...JSON.parse(JSON.stringify(foodData)),
+                id: `${normalizedClass}_${i}`, // Benzersiz tespit ID'si
+                confidence: detection.confidence * 100, // Yüzdelik değer (0-100)
+                boundingBox: {
+                    x: detection.bbox[0],
+                    y: detection.bbox[1],
+                    width: detection.bbox[2] - detection.bbox[0],
+                    height: detection.bbox[3] - detection.bbox[1]
+                },
+                bbox: detection.bbox, // Orijinal bbox verisini de sakla
+                segments: detection.segments // Segmentasyon verisi
+            };
+            
+            // Sadece eşik değeri üzerindeki tespitleri ekle
+            if (detectedFood.confidence >= settings.confidenceThreshold) {
+                processedResults.push(detectedFood);
+            }
+        }
+        
+        // Güven skoruna göre sırala (yüksekten düşüğe)
+        return processedResults.sort((a, b) => b.confidence - a.confidence);
     };
 
     /**

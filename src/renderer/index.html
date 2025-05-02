@@ -7,6 +7,86 @@
     <!-- CSS dosyalarını içe aktar -->
     <link rel="stylesheet" href="css/main.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* WebSocket durum göstergesi stilleri */
+        .websocket-status {
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-connected {
+            background-color: #28a745;
+            color: white;
+        }
+        .status-connecting {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        .status-disconnected {
+            background-color: #dc3545;
+            color: white;
+        }
+        .status-error {
+            background-color: #dc3545;
+            color: white;
+        }
+        .status-reconnecting {
+            background-color: #17a2b8;
+            color: white;
+        }
+        .status-failed {
+            background-color: #6c757d;
+            color: white;
+        }
+        .status-connected .status-indicator {
+            background-color: #5df086;
+        }
+        .status-connecting .status-indicator {
+            background-color: #ffe066;
+        }
+        .status-disconnected .status-indicator {
+            background-color: #ff8d9e;
+        }
+        .status-error .status-indicator {
+            background-color: #ff8d9e;
+        }
+        .status-reconnecting .status-indicator {
+            background-color: #8de0f0;
+        }
+        .status-failed .status-indicator {
+            background-color: #c6c8ca;
+        }
+        
+        /* Confidence slider stilleri */
+        .confidence-slider-container {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        .confidence-slider-container h4 {
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        .confidence-slider {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+        .confidence-value {
+            text-align: center;
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body data-page-type="home">
     <!-- Header Bölümü -->
@@ -30,6 +110,24 @@
 
         <div class="main-container">
             <div class="left-column">
+                <!-- Backend Bağlantı Durumu -->
+                <div class="connection-status-bar">
+                    <div id="websocketStatus" class="websocket-status status-disconnected">
+                        <span class="status-indicator"></span>
+                        <span>Bağlantı Kesildi</span>
+                    </div>
+                    <button id="wsConnectBtn" class="btn btn-primary btn-sm">
+                        <i class="fas fa-plug"></i> Bağlan
+                    </button>
+                </div>
+                
+                <!-- Confidence Slider -->
+                <div class="confidence-slider-container">
+                    <h4>Tespit Hassasiyeti</h4>
+                    <input type="range" id="confidenceSlider" class="confidence-slider" min="0.1" max="1.0" step="0.05" value="0.5">
+                    <div id="confidenceValue" class="confidence-value">50%</div>
+                </div>
+                
                 <!-- Kamera Bölümü -->
                 <div class="camera-section">
                     <div class="camera-header">
@@ -91,9 +189,7 @@
                                     <p>Gerçek zamanlı tespit için kamerayı başlatın</p>
                                 </div>
                                 <video id="realtimeVideo" autoplay playsinline></video>
-                                <div class="detection-overlay" id="detectionOverlay" style="display:none">
-                                    Sistem yemekleri otomatik olarak tespit ediyor...
-                                </div>
+                                <canvas id="detectionOverlay" class="detection-overlay" style="display:none"></canvas>
                             </div>
                             <div class="camera-controls">
                                 <button id="startRealtimeBtn" class="btn btn-primary">
@@ -253,6 +349,8 @@
     <!-- JavaScript Modülleri -->
     <script src="js/modules/utils.js"></script>
     <script src="js/modules/tabs.js"></script>
+    <script src="js/modules/websocket_manager.js"></script>
+    <script src="js/modules/visualization.js"></script>
     <script src="js/modules/camera.js"></script>
     <script src="js/modules/food_detection.js"></script>
     <script src="js/modules/food_list.js"></script>
