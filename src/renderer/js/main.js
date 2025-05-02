@@ -23,17 +23,16 @@ document.addEventListener('DOMContentLoaded', async function() {
             console.warn('Uygulama bilgileri alınamadı:', error);
         }
     }
-    
-    // Tüm sayfalarda çalışan ortak modülleri başlat
-    if (typeof TabsModule !== 'undefined') {
-        TabsModule.init();
-    }
-    
+
     // Sayfa tipine göre uygun modülleri başlat
     if (pageType === 'home') {
         // Ana sayfada çalışacak modüller (kamera, yemek tanıma, vb.)
         console.log('Ana sayfa modülleri başlatılıyor...');
-        
+
+        if (typeof TabsModule !== 'undefined') {
+            TabsModule.init();
+        }
+
         // WebSocket bağlantı durumu elementi
         const connectionStatusElement = document.getElementById('websocketStatus');
         
