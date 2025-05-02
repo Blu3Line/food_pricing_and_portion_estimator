@@ -436,7 +436,7 @@ footer {
 /* ------------------------------
    Websocket Connection Status stytles
    ------------------------------ */
-   .websocket-status {
+.websocket-status {
     display: inline-flex;
     align-items: center;
     padding: 5px 10px;

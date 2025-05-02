@@ -8,7 +8,7 @@ const WebSocketManager = (function() {
     let isConnected = false;
     let isConnecting = false;
     let reconnectAttempts = 0;
-    let maxReconnectAttempts = 5;
+    let maxReconnectAttempts = 3; // Maksimum yeniden bağlantı denemesi
     let reconnectInterval = 2000; // ms
     let reconnectTimeoutId = null;
     let serverUrl = 'ws://localhost:8765'; // Varsayılan URL
@@ -48,7 +48,7 @@ const WebSocketManager = (function() {
         if (config.autoConnect === true) {
             connect().catch(err => {
                 console.error('Otomatik bağlantı hatası:', err);
-                updateConnectionStatus('disconnected', 'Bağlantı başarısız');
+                updateConnectionStatus('disconnected', 'Bağlantı Başarısız');
             });
         } else {
             updateConnectionStatus('disconnected', 'Bağlantı Kesildi');
@@ -489,37 +489,6 @@ const WebSocketManager = (function() {
     };
 })();
 
-/**
- * Base64 verilerini temizler
- * @param {string} dataUrl - Base64 formatında veri
- * @returns {Promise<string>} - Temizlenmiş base64 verisi
- */
-async function cleanBase64Data(dataUrl) {
-    // Eğer dataUrl base64 formatında değilse veya zaten temizse doğrudan döndür
-    if (!dataUrl || !dataUrl.startsWith('data:')) {
-        return dataUrl;
-    }
-
-    try {
-        // Base64 verinin data URL parçasını çıkart (data:image/jpeg;base64, kısmını ayır)
-        const base64Data = dataUrl.split(',')[1];
-        
-        // Doğru bir base64 string'i padding için 4'ün katı uzunluğunda olmalıdır
-        // Eksik padding'i tamamla
-        let paddedData = base64Data;
-        const padding = paddedData.length % 4;
-        if (padding > 0) {
-            paddedData += '='.repeat(4 - padding);
-        }
-        
-        // Temizlenmiş data URL'i oluştur (header kısmını geri ekle)
-        const header = dataUrl.split(',')[0];
-        return `${header},${paddedData}`;
-    } catch (error) {
-        console.error('Base64 temizleme hatası:', error);
-        return dataUrl; // Hata durumunda orijinal değeri döndür
-    }
-}
 
 // CommonJS ve ES module uyumluluğu
 if (typeof module !== 'undefined' && module.exports) {
