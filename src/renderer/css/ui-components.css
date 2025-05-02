@@ -432,3 +432,86 @@ footer {
     background-color: rgba(255, 0, 0, 0.15);
     color: #ff0000;
 }
+
+/* ------------------------------
+   Websocket Connection Status stytles
+   ------------------------------ */
+   .websocket-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 10px;
+    font-size: 14px;
+    margin-right: 10px;
+}
+.status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+.status-connected {
+    background-color: #28a745;
+    color: white;
+}
+.status-connecting {
+    background-color: #ffc107;
+    color: #212529;
+}
+.status-disconnected {
+    background-color: #dc3545;
+    color: white;
+}
+.status-error {
+    background-color: #dc3545;
+    color: white;
+}
+.status-reconnecting {
+    background-color: #17a2b8;
+    color: white;
+}
+.status-failed {
+    background-color: #6c757d;
+    color: white;
+}
+.status-connected .status-indicator {
+    background-color: #5df086;
+}
+.status-connecting .status-indicator {
+    background-color: #ffe066;
+}
+.status-disconnected .status-indicator {
+    background-color: #ff8d9e;
+}
+.status-error .status-indicator {
+    background-color: #ff8d9e;
+}
+.status-reconnecting .status-indicator {
+    background-color: #8de0f0;
+}
+.status-failed .status-indicator {
+    background-color: #c6c8ca;
+}
+
+/* ------------------------------
+   Confidence Slider Styles
+   ------------------------------ */
+
+.confidence-slider-container {
+    margin-top: 15px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+}
+.confidence-slider-container h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+.confidence-slider {
+    width: 100%;
+    margin-bottom: 5px;
+}
+.confidence-value {
+    text-align: center;
+    font-weight: bold;
+}
