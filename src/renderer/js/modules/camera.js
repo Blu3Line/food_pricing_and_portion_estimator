@@ -652,6 +652,9 @@ const CameraModule = (function() {
             detectedItemsEl.innerHTML = '<li class="loading-item"><div class="loading-spinner"></div> Yemekler tespit ediliyor...</li>';
         }
         
+        // Orijinal görüntüyü saklayalım - çözüm için
+        const originalImage = resultImage.src;
+        
         // WebSocket bağlantısı var mı kontrol et
         if (websocketEnabled && WebSocketManager.isConnected()) {
             try {
@@ -663,8 +666,14 @@ const CameraModule = (function() {
                 );
                 
                 if (response.success) {
-                    // Sonuçları görselleştir
-                    visualizeResults(resultImage, response.data);
+                    // Görüntünün üzerine tespitleri çiz - VisualizationModule kullan
+                    if (typeof VisualizationModule !== 'undefined') {
+                        // Orijinal görüntü üzerine tespitleri çiz
+                        await VisualizationModule.displayDetectionsOnImage(resultImage, response.data);
+                    } else {
+                        // Eski görselleştirme yöntemi için
+                        visualizeResults(resultImage, response.data);
+                    }
                     
                     // Sonuçları callback'e aktar
                     if (imageAnalysisCallback) {
@@ -796,21 +805,37 @@ const CameraModule = (function() {
                     // Deteksiyon overlay'i güncelle
                     const detectionOverlay = document.getElementById('detectionOverlay');
                     if (detectionOverlay) {
+                        // Overlay canvas boyutlarını ayarla
+                        detectionOverlay.width = realtimeVideo.videoWidth;
+                        detectionOverlay.height = realtimeVideo.videoHeight;
+                        
                         if (response.success && response.data && response.data.length > 0) {
-                            // Overlay canvas boyutlarını ayarla
-                            detectionOverlay.width = realtimeVideo.videoWidth;
-                            detectionOverlay.height = realtimeVideo.videoHeight;
+                            // Video karesinin kopyasını overlay'e çiz (önemli düzeltme)
+                            const ctx = detectionOverlay.getContext('2d');
+                            ctx.clearRect(0, 0, detectionOverlay.width, detectionOverlay.height);
+                            ctx.drawImage(realtimeVideo, 0, 0, detectionOverlay.width, detectionOverlay.height);
                             
-                            // Tespitleri çiz
-                            drawDetections(detectionOverlay, response.data);
+                            // VisualizationModule ile çizim yapma
+                            if (typeof VisualizationModule !== 'undefined') {
+                                // Tespitleri çiz (video üzerine)
+                                VisualizationModule.renderDetections(detectionOverlay, response.data);
+                                
+                                // Canvas'ı göster
+                                detectionOverlay.style.display = 'block';
+                            } else {
+                                // Eski yöntem
+                                drawDetections(detectionOverlay, response.data);
+                            }
                             
                             // Callback'i çağır
                             if (imageAnalysisCallback) {
                                 imageAnalysisCallback(response);
                             }
                         } else if (response.success) {
-                            // Tespit yoksa overlay'i temizle
-                            clearDetectionOverlay(detectionOverlay);
+                            // Tespit yoksa overlay'i temizle ve video karesi koy
+                            const ctx = detectionOverlay.getContext('2d');
+                            ctx.clearRect(0, 0, detectionOverlay.width, detectionOverlay.height);
+                            ctx.drawImage(realtimeVideo, 0, 0, detectionOverlay.width, detectionOverlay.height);
                         }
                     }
                     

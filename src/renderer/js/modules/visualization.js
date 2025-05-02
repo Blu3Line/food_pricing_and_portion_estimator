@@ -54,8 +54,8 @@ const VisualizationModule = (function() {
         // Canvas context'ini al
         const ctx = canvas.getContext('2d');
         
-        // Canvas'ı temizle
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // Canvas'ı temizle (Bunu kaldırıyoruz, zaten üzerine çiziyoruz)
+        // ctx.clearRect(0, 0, canvas.width, canvas.height);
         
         // Geçici ayarları birleştir
         const renderSettings = { ...settings, ...options };
