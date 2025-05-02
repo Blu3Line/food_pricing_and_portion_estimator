@@ -1,274 +1,216 @@
 /**
- * Görselleştirme Modülü
- * YOLO tespit sonuçlarını görselleştirmek için kullanılır
+ * Yemek Tespitlerini Görselleştirme Modülü
+ * YOLO çıktılarını görsel olarak göstermek için kullanılır
  */
 const VisualizationModule = (function() {
     // Özel değişkenler
-    let settings = {
+    let config = {
         boxLineWidth: 2,
-        fontFamily: 'Arial',
         fontSize: 14,
         segmentOpacity: 0.3,
-        showBoxes: true,
-        showSegments: true,
-        showLabels: true
-    };
-
-    /**
-     * Modülü başlatır
-     * @param {Object} options - Görselleştirme ayarları
-     */
-    const init = (options = {}) => {
-        // Ayarları güncelle
-        Object.assign(settings, options);
-        console.log('Görselleştirme modülü başlatıldı', settings);
-        return true;
-    };
-
-    /**
-     * Tespit sonuçlarını canvas üzerinde görselleştirir
-     * @param {HTMLCanvasElement|string} canvas - Canvas elementi veya ID'si
-     * @param {Array} detections - Tespit sonuçları listesi
-     * @param {Object} options - Görselleştirme seçenekleri
-     */
-    const renderDetections = (canvas, detections, options = {}) => {
-        // Canvas elementini al
-        if (typeof canvas === 'string') {
-            canvas = document.getElementById(canvas);
-            if (!canvas) {
-                console.error(`Canvas elementi bulunamadı: #${canvas}`);
-                return false;
-            }
-        }
-
-        if (!canvas || !(canvas instanceof HTMLCanvasElement)) {
-            console.error('Geçerli bir canvas elementi belirtilmedi');
-            return false;
-        }
-
-        if (!detections || !Array.isArray(detections) || detections.length === 0) {
-            console.log('Görselleştirilecek tespit bulunamadı');
-            return false;
-        }
-
-        // Canvas context'ini al
-        const ctx = canvas.getContext('2d');
-        
-        // Canvas'ı temizle (Bunu kaldırıyoruz, zaten üzerine çiziyoruz)
-        // ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Geçici ayarları birleştir
-        const renderSettings = { ...settings, ...options };
-        
-        // Her bir tespiti çiz
-        detections.forEach(detection => {
-            drawDetection(ctx, detection, renderSettings);
-        });
-        
-        return true;
+        classColors: {} // Sınıf renkleri için önbellek
     };
     
     /**
-     * Bir görüntü üzerine tespit sonuçlarını çizer ve görüntüyü döndürür
-     * @param {HTMLImageElement|string} image - Görüntü elementi veya kaynak URL'si
-     * @param {Array} detections - Tespit sonuçları listesi
-     * @param {Object} options - Görselleştirme seçenekleri
-     * @returns {Promise<string>} - İşlenmiş görüntünün dataURL'si
+     * Modülü başlatır
+     * @param {Object} options - Konfigürasyon seçenekleri
+     * @returns {Object} - Modül API'si
      */
-    const renderDetectionsOnImage = (image, detections, options = {}) => {
-        return new Promise((resolve, reject) => {
-            try {
-                // Görüntü elementini al veya oluştur
-                let imgElement;
+    const init = (options = {}) => {
+        // Konfigürasyon seçeneklerini birleştir
+        config = { ...config, ...options };
+        
+        return VisualizationModule;
+    };
+    
+    /**
+     * Canvas boyutlarını ayarlar
+     * @param {HTMLCanvasElement} canvas - Hedef canvas
+     * @param {number} width - Genişlik
+     * @param {number} height - Yükseklik
+     */
+    const setCanvasSize = (canvas, width, height) => {
+        if (!canvas) return;
+        
+        canvas.width = width;
+        canvas.height = height;
+    };
+    
+    /**
+     * Tespit sonuçlarını canvas üzerine çizer
+     * @param {HTMLCanvasElement} canvas - Hedef canvas
+     * @param {Array} detections - Tespit sonuçları
+     * @param {Object} options - İsteğe bağlı çizim ayarları
+     */
+    const renderDetections = (canvas, detections, options = {}) => {
+        if (!canvas || !detections || !Array.isArray(detections)) return;
+        
+        // Lokal çizim ayarlarını oluştur
+        const drawConfig = { ...config, ...options };
+        
+        const ctx = canvas.getContext('2d');
+        
+        // Her bir tespit için
+        for (const detection of detections) {
+            // Temel özellikleri çıkar
+            const className = detection.class || 'unknown';
+            const confidence = detection.confidence || 0;
+            
+            // Renk belirle
+            const color = getColorForClass(className);
+            
+            // Bounding box çiz (bbox formatı [x1, y1, x2, y2] veya x, y, width, height formatında olabilir)
+            if (detection.bbox) {
+                let x, y, width, height;
                 
-                if (typeof image === 'string') {
-                    // String ise, bu bir URL veya data URL'dir
-                    imgElement = new Image();
-                    imgElement.onload = () => continueProcessing(imgElement);
-                    imgElement.onerror = () => reject(new Error('Görüntü yüklenemedi'));
-                    imgElement.src = image;
-                } else if (image instanceof HTMLImageElement) {
-                    // Zaten bir görüntü elementi ise
-                    imgElement = image;
-                    
-                    // Görüntü yüklü mü kontrol et
-                    if (imgElement.complete) {
-                        continueProcessing(imgElement);
-                    } else {
-                        imgElement.onload = () => continueProcessing(imgElement);
-                        imgElement.onerror = () => reject(new Error('Görüntü yüklenemedi'));
-                    }
+                if (Array.isArray(detection.bbox) && detection.bbox.length === 4) {
+                    // [x1, y1, x2, y2] formatı
+                    const [x1, y1, x2, y2] = detection.bbox.map(v => Math.round(v));
+                    x = x1;
+                    y = y1;
+                    width = x2 - x1;
+                    height = y2 - y1;
+                } else if (detection.bbox.x !== undefined) {
+                    // {x, y, width, height} formatı
+                    x = Math.round(detection.bbox.x);
+                    y = Math.round(detection.bbox.y);
+                    width = Math.round(detection.bbox.width);
+                    height = Math.round(detection.bbox.height);
+                } else if (detection.boundingBox) {
+                    // Alternatif boundingBox prop
+                    x = Math.round(detection.boundingBox.x);
+                    y = Math.round(detection.boundingBox.y);
+                    width = Math.round(detection.boundingBox.width);
+                    height = Math.round(detection.boundingBox.height);
                 } else {
-                    reject(new Error('Geçerli bir görüntü elementi belirtilmedi'));
+                    continue; // Geçerli bbox yok
                 }
                 
-                // Görüntü yüklendikten sonra işleme devam et
-                function continueProcessing(img) {
-                    // Geçici canvas oluştur
-                    const canvas = document.createElement('canvas');
-                    canvas.width = img.naturalWidth || img.width;
-                    canvas.height = img.naturalHeight || img.height;
+                // Kutuyu çiz
+                ctx.strokeStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+                ctx.lineWidth = drawConfig.boxLineWidth;
+                ctx.strokeRect(x, y, width, height);
+                
+                // Sınıf etiketi çiz
+                const label = `${className}: ${Math.round(confidence * 100)}%`;
+                drawLabel(ctx, label, x, y, color, drawConfig);
+            }
+            
+            // Segmentasyon poligonu çiz (eğer varsa)
+            if (detection.segments && Array.isArray(detection.segments) && detection.segments.length > 2) {
+                const segments = detection.segments;
+                
+                ctx.beginPath();
+                ctx.moveTo(segments[0][0], segments[0][1]);
+                
+                for (let i = 1; i < segments.length; i++) {
+                    ctx.lineTo(segments[i][0], segments[i][1]);
+                }
+                
+                ctx.closePath();
+                ctx.strokeStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+                ctx.lineWidth = drawConfig.boxLineWidth;
+                ctx.stroke();
+                
+                // Yarı saydam dolgu
+                ctx.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${drawConfig.segmentOpacity})`;
+                ctx.fill();
+            }
+        }
+    };
+    
+    /**
+     * Görüntü üzerine tespit sonuçlarını çizer
+     * @param {HTMLImageElement} img - Hedef resim elementi
+     * @param {Array} detections - Tespit sonuçları
+     * @returns {Promise} - İşlem sonucu
+     */
+    const displayDetectionsOnImage = async (img, detections) => {
+        return new Promise((resolve, reject) => {
+            if (!img || !detections) {
+                resolve(false);
+                return;
+            }
+            
+            try {
+                // Orijinal boyutları al
+                const width = img.naturalWidth || img.width;
+                const height = img.naturalHeight || img.height;
+                
+                // Canvas oluştur ve resmi kopyala
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                
+                const ctx = canvas.getContext('2d');
+                
+                // Resmin yüklü olduğundan emin ol
+                if (img.complete) {
+                    ctx.drawImage(img, 0, 0, width, height);
+                    renderDetections(canvas, detections);
+                    img.src = canvas.toDataURL('image/png');
+                    resolve(true);
+                } else {
+                    // Resim henüz yüklenmediyse bekle
+                    img.onload = function() {
+                        ctx.drawImage(img, 0, 0, width, height);
+                        renderDetections(canvas, detections);
+                        img.src = canvas.toDataURL('image/png');
+                        resolve(true);
+                    };
                     
-                    // Görüntüyü canvas'a çiz
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    
-                    // Geçici ayarları birleştir
-                    const renderSettings = { ...settings, ...options };
-                    
-                    // Her bir tespiti çiz
-                    if (detections && detections.length > 0) {
-                        detections.forEach(detection => {
-                            drawDetection(ctx, detection, renderSettings);
-                        });
-                    }
-                    
-                    // İşlenmiş canvas'ı dataURL olarak döndür
-                    resolve(canvas.toDataURL('image/png'));
+                    // Zaman aşımı için güvenlik kontrolü
+                    setTimeout(() => {
+                        if (!img.complete) {
+                            reject(new Error('Resim yükleme zaman aşımı'));
+                        }
+                    }, 5000);
                 }
             } catch (error) {
+                console.error('Görüntüye tespit sonuçları eklenirken hata:', error);
                 reject(error);
             }
         });
     };
     
     /**
-     * Bir görüntü üzerine tespit sonuçlarını çizer ve görüntüyü bir elementte gösterir
-     * @param {HTMLImageElement} targetElement - Hedef görüntü elementi
-     * @param {Array} detections - Tespit sonuçları listesi
-     * @param {Object} options - Görselleştirme seçenekleri
+     * Etiket çizer
+     * @param {CanvasRenderingContext2D} ctx - Canvas bağlamı
+     * @param {string} text - Etiket metni
+     * @param {number} x - X koordinatı
+     * @param {number} y - Y koordinatı
+     * @param {Array} color - RGB renk dizisi
+     * @param {Object} options - Çizim seçenekleri
      */
-    const displayDetectionsOnImage = async (targetElement, detections, options = {}) => {
-        try {
-            if (!targetElement || !(targetElement instanceof HTMLImageElement)) {
-                console.error('Geçerli bir görüntü elementi belirtilmedi');
-                return false;
-            }
-            
-            // Görüntüyü işle
-            const dataUrl = await renderDetectionsOnImage(targetElement.src, detections, options);
-            
-            // Görüntüyü güncelle
-            targetElement.src = dataUrl;
-            
-            return true;
-        } catch (error) {
-            console.error('Görüntü işlenirken hata oluştu:', error);
-            return false;
-        }
+    const drawLabel = (ctx, text, x, y, color, options) => {
+        const fontSize = options.fontSize || 14;
+        ctx.font = `${fontSize}px Arial`;
+        
+        // Metin boyutlarını al
+        const textMetrics = ctx.measureText(text);
+        const textWidth = textMetrics.width;
+        const textHeight = fontSize * 1.2;
+        
+        // Etiket arka planı
+        ctx.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0.7)`;
+        ctx.fillRect(x, y - textHeight, textWidth + 8, textHeight);
+        
+        // Etiket metni
+        ctx.fillStyle = 'white';
+        ctx.fillText(text, x + 4, y - textHeight / 3);
     };
     
     /**
-     * Tespit nesnesi üzerinde tek bir tespiti çizer
-     * @param {CanvasRenderingContext2D} ctx - Canvas rendering context
-     * @param {Object} detection - Tespit nesnesi
-     * @param {Object} options - Görselleştirme seçenekleri
-     */
-    const drawDetection = (ctx, detection, options) => {
-        // Tespitte gerekli bilgiler var mı kontrol et
-        if (!detection || !detection.class) return;
-        
-        // Tüm göstergeleri gizlemek istersek
-        if (!options.showBoxes && !options.showSegments && !options.showLabels) return;
-        
-        // Renk oluştur
-        const color = getColorForClass(detection.class);
-        
-        // Bounding box'ı çiz
-        if (options.showBoxes && detection.bbox && detection.bbox.length === 4) {
-            drawBoundingBox(ctx, detection.bbox, color, options);
-        }
-        
-        // Segmentasyon polygon'unu çiz
-        if (options.showSegments && detection.segments && detection.segments.length > 2) {
-            drawSegmentPolygon(ctx, detection.segments, color, options);
-        }
-        
-        // Etiketi çiz
-        if (options.showLabels && detection.bbox && detection.bbox.length === 4) {
-            drawLabel(ctx, detection, color, options);
-        }
-    };
-    
-    /**
-     * Bounding box çizer
-     * @param {CanvasRenderingContext2D} ctx - Canvas rendering context
-     * @param {Array} bbox - Bounding box koordinatları [x1, y1, x2, y2]
-     * @param {Array} color - RGB renk değerleri [r, g, b]
-     * @param {Object} options - Görselleştirme seçenekleri
-     */
-    const drawBoundingBox = (ctx, bbox, color, options) => {
-        const [x1, y1, x2, y2] = bbox;
-        
-        ctx.strokeStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
-        ctx.lineWidth = options.boxLineWidth;
-        ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
-    };
-    
-    /**
-     * Segmentasyon polygonunu çizer
-     * @param {CanvasRenderingContext2D} ctx - Canvas rendering context
-     * @param {Array} segments - Segment noktaları [[x1, y1], [x2, y2], ...]
-     * @param {Array} color - RGB renk değerleri [r, g, b]
-     * @param {Object} options - Görselleştirme seçenekleri
-     */
-    const drawSegmentPolygon = (ctx, segments, color, options) => {
-        if (segments.length < 3) return; // En az 3 nokta gerekli
-        
-        ctx.beginPath();
-        
-        // İlk noktaya git
-        ctx.moveTo(segments[0][0], segments[0][1]);
-        
-        // Diğer noktaları dolaş
-        for (let i = 1; i < segments.length; i++) {
-            ctx.lineTo(segments[i][0], segments[i][1]);
-        }
-        
-        // Poligonu kapat
-        ctx.closePath();
-        
-        // Kenar çizgisi
-        ctx.strokeStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
-        ctx.lineWidth = options.boxLineWidth;
-        ctx.stroke();
-        
-        // Dolgu
-        ctx.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${options.segmentOpacity})`;
-        ctx.fill();
-    };
-    
-    /**
-     * Tespit etiketi çizer
-     * @param {CanvasRenderingContext2D} ctx - Canvas rendering context
-     * @param {Object} detection - Tespit nesnesi
-     * @param {Array} color - RGB renk değerleri [r, g, b]
-     * @param {Object} options - Görselleştirme seçenekleri
-     */
-    const drawLabel = (ctx, detection, color, options) => {
-        const [x1, y1] = detection.bbox;
-        
-        // Etiket bilgisini hazırla
-        const confidence = detection.confidence || 0;
-        const label = `${detection.class}: ${confidence.toFixed(1)}%`;
-        
-        // Metin stili
-        ctx.font = `${options.fontSize}px ${options.fontFamily}`;
-        ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
-        
-        // Etiketin konumu (sanal boyutları aşmaması için kontrol et)
-        const y = y1 > 20 ? y1 - 5 : y1 + 20;
-        
-        // Metni çiz
-        ctx.fillText(label, x1, y);
-    };
-    
-    /**
-     * Bir sınıf adı için renk oluşturur
+     * Sınıf adına göre renk oluşturur
      * @param {string} className - Sınıf adı
-     * @returns {Array} - RGB renk değerleri [r, g, b]
+     * @returns {Array} - RGB renk değerleri
      */
     const getColorForClass = (className) => {
+        // Önbellekte varsa kullan
+        if (config.classColors[className]) {
+            return config.classColors[className];
+        }
+        
         // Basit hash fonksiyonu
         let hash = 0;
         for (let i = 0; i < className.length; i++) {
@@ -280,71 +222,100 @@ const VisualizationModule = (function() {
         const g = ((hash >> 8) & 0xFF);
         const b = ((hash >> 16) & 0xFF);
         
+        // Önbelleğe al
+        config.classColors[className] = [r, g, b];
+        
         return [r, g, b];
     };
     
     /**
      * Canvas'ı temizler
-     * @param {HTMLCanvasElement|string} canvas - Canvas elementi veya ID'si
+     * @param {HTMLCanvasElement} canvas - Temizlenecek canvas
      */
     const clearCanvas = (canvas) => {
-        // Canvas elementini al
-        if (typeof canvas === 'string') {
-            canvas = document.getElementById(canvas);
-            if (!canvas) {
-                console.error(`Canvas elementi bulunamadı: #${canvas}`);
-                return false;
-            }
-        }
-
-        if (!canvas || !(canvas instanceof HTMLCanvasElement)) {
-            console.error('Geçerli bir canvas elementi belirtilmedi');
-            return false;
-        }
+        if (!canvas) return;
         
-        // Canvas'ı temizle
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        return true;
     };
     
     /**
-     * Canvas boyutunu ayarlar
-     * @param {HTMLCanvasElement|string} canvas - Canvas elementi veya ID'si
-     * @param {number} width - Genişlik
-     * @param {number} height - Yükseklik
+     * Canvas'a bilgi mesajı ekler
+     * @param {HTMLCanvasElement} canvas - Hedef canvas
+     * @param {string} message - Gösterilecek mesaj
+     * @param {Object} options - Gösterim seçenekleri
      */
-    const setCanvasSize = (canvas, width, height) => {
-        // Canvas elementini al
-        if (typeof canvas === 'string') {
-            canvas = document.getElementById(canvas);
-            if (!canvas) {
-                console.error(`Canvas elementi bulunamadı: #${canvas}`);
-                return false;
-            }
-        }
-
-        if (!canvas || !(canvas instanceof HTMLCanvasElement)) {
-            console.error('Geçerli bir canvas elementi belirtilmedi');
-            return false;
-        }
+    const displayMessage = (canvas, message, options = {}) => {
+        if (!canvas) return;
         
-        // Canvas boyutlarını ayarla
-        canvas.width = width;
-        canvas.height = height;
+        const ctx = canvas.getContext('2d');
         
-        return true;
+        // Varsayılan seçenekler
+        const opt = {
+            fontSize: options.fontSize || 16,
+            color: options.color || 'white',
+            bgColor: options.bgColor || 'rgba(0, 0, 0, 0.6)',
+            padding: options.padding || 10,
+            ...options
+        };
+        
+        // Arka plan ekle
+        ctx.fillStyle = opt.bgColor;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Metni ekle
+        ctx.font = `${opt.fontSize}px Arial`;
+        ctx.fillStyle = opt.color;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(message, canvas.width / 2, canvas.height / 2);
     };
-
+    
+    // FPS ölçümü için değişkenler
+    let lastFrameTime = 0;
+    let frameCount = 0;
+    let fps = 0;
+    
+    /**
+     * FPS hesaplar ve gösterir
+     * @param {HTMLCanvasElement} canvas - Hedef canvas
+     */
+    const calculateAndDisplayFPS = (canvas) => {
+        if (!canvas) return;
+        
+        const currentTime = performance.now();
+        frameCount++;
+        
+        // Her saniye FPS güncelle
+        if (currentTime - lastFrameTime >= 1000) {
+            fps = frameCount;
+            frameCount = 0;
+            lastFrameTime = currentTime;
+        }
+        
+        // FPS göster
+        const ctx = canvas.getContext('2d');
+        ctx.font = '14px Arial';
+        ctx.fillStyle = 'white';
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 2;
+        
+        const fpsText = `FPS: ${fps}`;
+        ctx.strokeText(fpsText, 10, 20);
+        ctx.fillText(fpsText, 10, 20);
+        
+        return fps;
+    };
+    
     // Public API
     return {
         init,
+        setCanvasSize,
         renderDetections,
-        renderDetectionsOnImage,
         displayDetectionsOnImage,
         clearCanvas,
-        setCanvasSize,
+        displayMessage,
+        calculateAndDisplayFPS,
         getColorForClass
     };
 })();

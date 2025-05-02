@@ -29,57 +29,56 @@ const WebSocketManager = (function() {
      * @returns {boolean} - Başlatma başarılı mı?
      */
     const init = (config = {}) => {
-        try {
-            // Ayarları güncelle
-            if (config.serverUrl) serverUrl = config.serverUrl;
-            if (config.maxReconnectAttempts !== undefined) maxReconnectAttempts = config.maxReconnectAttempts;
-            if (config.reconnectInterval !== undefined) reconnectInterval = config.reconnectInterval;
-            
-            // Event callback'lerini ayarla
-            if (config.onConnect) onConnectCallback = config.onConnect;
-            if (config.onDisconnect) onDisconnectCallback = config.onDisconnect;
-            if (config.onError) onErrorCallback = config.onError;
-            if (config.onMessage) onMessageCallback = config.onMessage;
-            if (config.onReconnect) onReconnectCallback = config.onReconnect;
-            
-            // UI element referansı
-            if (config.connectionStatusElement) {
-                connectionStatusElement = typeof config.connectionStatusElement === 'string' 
-                    ? document.getElementById(config.connectionStatusElement)
-                    : config.connectionStatusElement;
-            }
-            
-            // Otomatik bağlantı kur (varsayılan olarak kapalı)
-            if (config.autoConnect) {
-                connect();
-            }
-            
-            return true;
-        } catch (error) {
-            console.error('WebSocketManager başlatma hatası:', error);
-            return false;
+        // Konfigürasyon ayarlarını uygula
+        if (config.serverUrl) serverUrl = config.serverUrl;
+        if (config.maxReconnectAttempts) maxReconnectAttempts = config.maxReconnectAttempts;
+        if (config.reconnectInterval) reconnectInterval = config.reconnectInterval;
+        
+        // Callback fonksiyonlarını ayarla
+        onConnectCallback = config.onConnect || null;
+        onDisconnectCallback = config.onDisconnect || null;
+        onErrorCallback = config.onError || null;
+        onMessageCallback = config.onMessage || null;
+        onReconnectCallback = config.onReconnect || null;
+        
+        // Bağlantı durumu göstergesi
+        connectionStatusElement = config.connectionStatusElement || null;
+        
+        // Otomatik bağlantı yapılandırması
+        if (config.autoConnect === true) {
+            connect().catch(err => {
+                console.error('Otomatik bağlantı hatası:', err);
+                updateConnectionStatus('disconnected', 'Bağlantı başarısız');
+            });
+        } else {
+            updateConnectionStatus('disconnected', 'Bağlantı Kesildi');
         }
+        
+        return true;
     };
     
     /**
-     * WebSocket bağlantısını kurar
-     * @returns {Promise<boolean>} - Bağlantı başarılı mı?
+     * WebSocket sunucusuna bağlanır
+     * @returns {Promise} - Bağlantı sonucu
      */
-    const connect = () => {
+    const connect = async () => {
+        // Zaten bağlı veya bağlanıyor durumunu kontrol et
+        if (isConnected) {
+            console.log('Zaten bağlı');
+            return Promise.resolve(true);
+        }
+        
+        if (isConnecting) {
+            console.log('Bağlantı devam ediyor');
+            return Promise.resolve(false);
+        }
+        
+        // Bağlantı durumunu güncelle
+        isConnecting = true;
+        updateConnectionStatus('connecting', 'Bağlanıyor...');
+        
+        // WebSocket bağlantısı oluştur
         return new Promise((resolve, reject) => {
-            if (isConnected) {
-                resolve(true);
-                return;
-            }
-            
-            if (isConnecting) {
-                reject(new Error('Bağlantı zaten kurulmaya çalışılıyor'));
-                return;
-            }
-            
-            isConnecting = true;
-            updateConnectionStatus('connecting');
-            
             try {
                 socket = new WebSocket(serverUrl);
                 
@@ -88,60 +87,61 @@ const WebSocketManager = (function() {
                     isConnected = true;
                     isConnecting = false;
                     reconnectAttempts = 0;
-                    updateConnectionStatus('connected');
+                    updateConnectionStatus('connected', 'Bağlantı Başarılı');
                     
-                    if (onConnectCallback) onConnectCallback();
+                    if (onConnectCallback) {
+                        onConnectCallback();
+                    }
+                    
                     resolve(true);
-                };
-                
-                // Mesaj alındığında
-                socket.onmessage = (event) => {
-                    try {
-                        const data = JSON.parse(event.data);
-                        if (onMessageCallback) onMessageCallback(data);
-                    } catch (error) {
-                        console.error('WebSocket mesaj işleme hatası:', error);
-                        if (onErrorCallback) onErrorCallback(error, 'message-parsing');
-                    }
-                };
-                
-                // Hata oluştuğunda
-                socket.onerror = (error) => {
-                    console.error('WebSocket hatası:', error);
-                    if (onErrorCallback) onErrorCallback(error, 'socket-error');
-                    
-                    if (isConnecting) {
-                        isConnecting = false;
-                        reject(error);
-                    }
                 };
                 
                 // Bağlantı kapandığında
                 socket.onclose = (event) => {
-                    const wasConnected = isConnected;
+                    console.log('WebSocket bağlantısı kapandı:', event);
                     isConnected = false;
                     isConnecting = false;
-                    updateConnectionStatus('disconnected');
                     
-                    if (wasConnected && onDisconnectCallback) {
+                    updateConnectionStatus('disconnected', 'Bağlantı Kesildi');
+                    
+                    if (onDisconnectCallback) {
                         onDisconnectCallback(event);
                     }
                     
-                    // Otomatik yeniden bağlantı
-                    if (wasConnected && maxReconnectAttempts > 0) {
-                        scheduleReconnect();
-                    }
-                    
-                    if (isConnecting) {
-                        reject(new Error('Bağlantı kurulurken kapandı'));
+                    // Yeniden bağlantı dene
+                    if (reconnectAttempts < maxReconnectAttempts) {
+                        tryReconnect();
                     }
                 };
                 
+                // Hata durumunda
+                socket.onerror = (error) => {
+                    console.error('WebSocket hatası:', error);
+                    isConnecting = false;
+                    
+                    updateConnectionStatus('error', 'Bağlantı Hatası');
+                    
+                    if (onErrorCallback) {
+                        onErrorCallback(error, 'connection');
+                    }
+                    
+                    reject(error);
+                };
+                
+                // Mesaj alındığında
+                socket.onmessage = (event) => {
+                    handleMessage(event);
+                };
+                
             } catch (error) {
-                isConnecting = false;
-                updateConnectionStatus('error');
                 console.error('WebSocket bağlantı hatası:', error);
-                if (onErrorCallback) onErrorCallback(error, 'connection-error');
+                isConnecting = false;
+                updateConnectionStatus('failed', 'Bağlantı Başarısız');
+                
+                if (onErrorCallback) {
+                    onErrorCallback(error, 'creation');
+                }
+                
                 reject(error);
             }
         });
@@ -149,227 +149,332 @@ const WebSocketManager = (function() {
     
     /**
      * WebSocket bağlantısını kapatır
-     * @returns {Promise<boolean>} - Kapatma başarılı mı?
+     * @returns {Promise} - İşlem sonucu
      */
-    const disconnect = () => {
+    const disconnect = async () => {
+        // Bağlantı yoksa işlem yapma
+        if (!isConnected || !socket) {
+            return Promise.resolve(true);
+        }
+        
         return new Promise((resolve) => {
-            if (!isConnected || !socket) {
-                resolve(true);
-                return;
-            }
-            
             try {
-                // Yeniden bağlanma denemelerini iptal et
+                // Reconnect işlemini iptal et
                 if (reconnectTimeoutId) {
                     clearTimeout(reconnectTimeoutId);
                     reconnectTimeoutId = null;
                 }
                 
                 // Bağlantıyı kapat
-                socket.close(1000, 'Kullanıcı tarafından kapatıldı');
+                socket.close();
+                socket = null;
                 isConnected = false;
-                updateConnectionStatus('disconnected');
+                
+                updateConnectionStatus('disconnected', 'Bağlantı Kapatıldı');
+                
+                if (onDisconnectCallback) {
+                    onDisconnectCallback();
+                }
                 
                 resolve(true);
             } catch (error) {
-                console.error('WebSocket bağlantı kapatma hatası:', error);
+                console.error('Bağlantı kapatma hatası:', error);
                 resolve(false);
             }
         });
     };
     
     /**
-     * Yeniden bağlanma işlemini planlar
+     * Yeniden bağlantı dener
      */
-    const scheduleReconnect = () => {
-        if (reconnectAttempts >= maxReconnectAttempts) {
-            console.warn(`Maksimum yeniden bağlanma denemesi (${maxReconnectAttempts}) aşıldı`);
-            updateConnectionStatus('failed');
-            return;
-        }
+    const tryReconnect = () => {
+        // Bağlantı varsa işlem yapma
+        if (isConnected || isConnecting) return;
         
         reconnectAttempts++;
-        
-        const delay = reconnectInterval * Math.pow(1.5, reconnectAttempts - 1);
-        console.log(`Yeniden bağlanma denemesi ${reconnectAttempts}/${maxReconnectAttempts} (${delay}ms sonra)`);
-        updateConnectionStatus('reconnecting');
+        updateConnectionStatus('reconnecting', `Yeniden bağlanıyor (${reconnectAttempts}/${maxReconnectAttempts})...`);
         
         if (onReconnectCallback) {
-            onReconnectCallback(reconnectAttempts, maxReconnectAttempts);
+            onReconnectCallback(reconnectAttempts);
         }
         
         reconnectTimeoutId = setTimeout(() => {
-            connect().catch(() => {
-                // Başarısız bağlantı durumunda bir şey yapma
-                // Zaten scheduleReconnect otomatik olarak çağrılacak
+            connect().catch(err => {
+                console.error('Yeniden bağlantı hatası:', err);
+                
+                if (reconnectAttempts < maxReconnectAttempts) {
+                    tryReconnect();
+                } else {
+                    updateConnectionStatus('failed', 'Bağlantı başarısız');
+                }
             });
-        }, delay);
+        }, reconnectInterval);
     };
     
     /**
-     * Mesaj gönderir
-     * @param {Object|string} data - Gönderilecek veri (JSON formatına dönüştürülür)
-     * @returns {Promise<boolean>} - Gönderim başarılı mı?
+     * Bağlantı durumunu günceller
+     * @param {string} status - Durum ('connected', 'disconnected', 'connecting', 'reconnecting', 'error', 'failed')
+     * @param {string} message - Durum mesajı
      */
-    const sendMessage = (data) => {
-        return new Promise((resolve, reject) => {
-            if (!isConnected || !socket) {
-                reject(new Error('WebSocket bağlantısı aktif değil'));
-                return;
-            }
+    const updateConnectionStatus = (status, message) => {
+        if (!connectionStatusElement) return;
+        
+        // Önceki sınıfları temizle
+        connectionStatusElement.classList.remove(
+            'status-connected', 
+            'status-disconnected', 
+            'status-connecting',
+            'status-reconnecting',
+            'status-error',
+            'status-failed'
+        );
+        
+        // Yeni duruma göre sınıf ekle
+        connectionStatusElement.classList.add(`status-${status}`);
+        
+        // Mesajı güncelle
+        const statusTextElement = connectionStatusElement.querySelector('span:last-child');
+        if (statusTextElement) {
+            statusTextElement.textContent = message;
+        } else {
+            connectionStatusElement.innerHTML = `<span class="status-indicator"></span><span>${message}</span>`;
+        }
+    };
+    
+    /**
+     * Gelen mesajı işler
+     * @param {MessageEvent} event - WebSocket mesaj olayı
+     */
+    const handleMessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
             
+            // Mesaj callback'i varsa çağır
+            if (onMessageCallback) {
+                onMessageCallback(data);
+            }
+        } catch (error) {
+            console.error('Mesaj işleme hatası:', error);
+            
+            if (onErrorCallback) {
+                onErrorCallback(error, 'message');
+            }
+        }
+    };
+    
+    /**
+     * JSON veriyi WebSocket üzerinden gönderir
+     * @param {Object} data - Gönderilecek veri
+     * @returns {Promise} - İşlem sonucu
+     */
+    const sendJson = async (data) => {
+        // Bağlantı yoksa hata döndür
+        if (!isConnected || !socket) {
+            return Promise.reject(new Error('WebSocket bağlantısı yok'));
+        }
+        
+        return new Promise((resolve, reject) => {
             try {
-                const message = typeof data === 'string' ? data : JSON.stringify(data);
-                socket.send(message);
+                const jsonString = JSON.stringify(data);
+                socket.send(jsonString);
                 resolve(true);
             } catch (error) {
-                console.error('WebSocket mesaj gönderme hatası:', error);
-                if (onErrorCallback) onErrorCallback(error, 'send-error');
+                console.error('Veri gönderme hatası:', error);
+                
+                if (onErrorCallback) {
+                    onErrorCallback(error, 'send');
+                }
+                
                 reject(error);
             }
         });
     };
     
     /**
-     * Görüntü gönderir
-     * @param {string} imageData - Base64 formatındaki görüntü verisi
-     * @param {string} imageType - Görüntü türü ('image' veya 'webcam')
-     * @param {Object} config - Ek yapılandırma parametreleri
-     * @returns {Promise<Object>} - Sunucu yanıtı
+     * Görüntü verilerini WebSocket üzerinden gönderir ve cevap bekler
+     * @param {string} imageData - Base64 formatında görüntü verisi
+     * @param {string} type - Görüntü tipi ('image', 'webcam')
+     * @param {Object} config - İşlem yapılandırmaları (confidence vb.)
+     * @returns {Promise} - Sunucu cevabı
      */
-    const sendImage = (imageData, imageType = 'image', config = {}) => {
+    const sendImage = async (imageData, type = 'image', config = {}) => {
+        // Bağlantı yoksa hata döndür
+        if (!isConnected || !socket) {
+            return Promise.reject(new Error('WebSocket bağlantısı yok'));
+        }
+        
         return new Promise((resolve, reject) => {
-            if (!isConnected || !socket) {
-                reject(new Error('WebSocket bağlantısı aktif değil'));
-                return;
-            }
-            
             try {
-                // Base64 görüntü verisini ayıkla (data:image/jpeg;base64, kısmını kaldır)
-                let base64Data = imageData;
-                if (base64Data.startsWith('data:')) {
-                    base64Data = base64Data.split(',')[1];
+                // Base64 verilerini düzelt
+                let processedImageData = imageData;
+                
+                // Data URL formatında geldiyse (data:image/jpeg;base64,...)
+                if (processedImageData && processedImageData.indexOf('data:') === 0) {
+                    // URL kısmını ve base64 kısmını ayır
+                    const parts = processedImageData.split(',');
+                    if (parts.length === 2) {
+                        // Sadece base64 kısmını al
+                        const rawBase64 = parts[1];
+                        
+                        // Python tarafında çalışacak JSON uyumlu bir veri oluştur
+                        processedImageData = rawBase64;
+                    }
                 }
                 
-                // Mesaj oluştur
+                // JSON mesajı oluştur
                 const message = {
-                    type: imageType,
-                    data: base64Data,
+                    type: type,
+                    data: processedImageData,
                     config: {
                         confidence: config.confidence || 0.5,
-                        classes: config.classes || []
+                        ...config
                     }
                 };
-
-                console.log("gönderilen confidence değeri: ", message.config.confidence);
                 
-                // Mesajı gönder
-                socket.send(JSON.stringify(message));
-                
-                // Yanıt için bir kerelik event listener ekle
+                // Message ID için listener
                 const messageHandler = (event) => {
-                    socket.removeEventListener('message', messageHandler);
-                    
                     try {
                         const response = JSON.parse(event.data);
+                        
+                        // İşlem tamamlandığında listener'ı kaldır
+                        socket.removeEventListener('message', messageHandler);
+                        
                         resolve(response);
                     } catch (error) {
-                        console.error('Yanıt işleme hatası:', error);
+                        console.error('Cevap işleme hatası:', error);
                         reject(error);
                     }
                 };
                 
+                // Mesaj dinleyicisini ekle
                 socket.addEventListener('message', messageHandler);
                 
-                // 15 saniye timeout ekle
-                setTimeout(() => {
-                    socket.removeEventListener('message', messageHandler);
-                    reject(new Error('Yanıt zaman aşımı'));
-                }, 15000);
+                // İsteği gönder
+                const jsonString = JSON.stringify(message);
+                socket.send(jsonString);
                 
             } catch (error) {
                 console.error('Görüntü gönderme hatası:', error);
-                if (onErrorCallback) onErrorCallback(error, 'send-image-error');
+                
+                if (onErrorCallback) {
+                    onErrorCallback(error, 'image');
+                }
+                
                 reject(error);
             }
         });
     };
     
     /**
-     * Bağlantı durumunu günceller ve UI'ı yeniler
-     * @param {string} status - Bağlantı durumu
+     * Gerçek zamanlı webcam modu için olan stream fonksiyonu
+     * @param {Function} onFrameProcess - Her frame işlendiğinde çağrılacak callback
+     * @param {number} interval - Kaç ms'de bir frame işleneceği (default: 200ms)
+     * @param {Object} config - Yapılandırma ayarları
+     * @returns {Object} - Stream kontrolü için fonksiyonlar
      */
-    const updateConnectionStatus = (status) => {
-        if (!connectionStatusElement) return;
+    const startWebcamStream = (onFrameProcess, interval = 200, config = {}) => {
+        let isActive = false;
+        let processingFrame = false;
+        let streamIntervalId = null;
         
-        // CSS sınıflarını temizle
-        connectionStatusElement.classList.remove(
-            'status-connected', 
-            'status-connecting', 
-            'status-disconnected', 
-            'status-error',
-            'status-reconnecting',
-            'status-failed'
-        );
+        // Webcam stream'i başlat
+        const start = () => {
+            if (isActive || !isConnected) return false;
+            
+            isActive = true;
+            
+            // Frame işleme döngüsünü başlat
+            streamIntervalId = setInterval(async () => {
+                // Zaten bir frame işleniyorsa bekle
+                if (processingFrame) return;
+                
+                // Frame işleme durumunu güncelle
+                processingFrame = true;
+                
+                try {
+                    // Callback'den frame al
+                    const frameData = await onFrameProcess();
+                    
+                    // Frame yoksa, işlem yapma
+                    if (!frameData) {
+                        processingFrame = false;
+                        return;
+                    }
+                    
+                    // Frame'i sunucuya gönder
+                    const response = await sendImage(
+                        frameData,
+                        'webcam',
+                        { confidence: config.confidence || 0.5, ...config }
+                    );
+                    
+                    // Frame işleme durumunu güncelle
+                    processingFrame = false;
+                    
+                    // Callback aracılığıyla sonucu bildir
+                    if (config.onResult) {
+                        config.onResult(response);
+                    }
+                    
+                } catch (error) {
+                    console.error('Webcam frame işleme hatası:', error);
+                    processingFrame = false;
+                    
+                    // Hata callback'ini çağır
+                    if (config.onError) {
+                        config.onError(error);
+                    }
+                }
+            }, interval);
+            
+            return true;
+        };
         
-        // Durum metni
-        let statusText = '';
-        let statusClass = '';
+        // Webcam stream'i durdur
+        const stop = () => {
+            if (!isActive) return false;
+            
+            isActive = false;
+            processingFrame = false;
+            
+            // Interval'i temizle
+            if (streamIntervalId) {
+                clearInterval(streamIntervalId);
+                streamIntervalId = null;
+            }
+            
+            return true;
+        };
         
-        switch (status) {
-            case 'connected':
-                statusText = 'Bağlı';
-                statusClass = 'status-connected';
-                break;
-            case 'connecting':
-                statusText = 'Bağlanıyor...';
-                statusClass = 'status-connecting';
-                break;
-            case 'disconnected':
-                statusText = 'Bağlantı Kesildi';
-                statusClass = 'status-disconnected';
-                break;
-            case 'error':
-                statusText = 'Bağlantı Hatası';
-                statusClass = 'status-error';
-                break;
-            case 'reconnecting':
-                statusText = `Yeniden Bağlanıyor (${reconnectAttempts}/${maxReconnectAttempts})...`;
-                statusClass = 'status-reconnecting';
-                break;
-            case 'failed':
-                statusText = 'Bağlantı Başarısız';
-                statusClass = 'status-failed';
-                break;
-            default:
-                statusText = 'Bilinmeyen Durum';
-        }
+        // Stream durumunu al
+        const getStatus = () => {
+            return {
+                isActive,
+                isProcessing: processingFrame,
+                isConnected: isConnected
+            };
+        };
         
-        // UI güncelle
-        connectionStatusElement.textContent = statusText;
-        connectionStatusElement.classList.add(statusClass);
+        // Frame işleme durumunu güncelle
+        const setProcessing = (status) => {
+            processingFrame = status;
+        };
+        
+        // Stream kontrolcüsü
+        return {
+            start,
+            stop,
+            getStatus,
+            setProcessing
+        };
     };
     
     /**
-     * Bağlantı durumunu döndürür
-     * @returns {boolean} - Bağlantı durumu
+     * Bağlantı durumunu kontrol eder
+     * @returns {boolean} - Bağlantı var mı?
      */
-    const isSocketConnected = () => {
+    const checkConnection = () => {
         return isConnected;
-    };
-    
-    /**
-     * Bağlantı URL'sini değiştirir
-     * @param {string} url - Yeni WebSocket URL'si
-     */
-    const setServerUrl = (url) => {
-        if (isConnected) {
-            console.warn('URL değiştirilmeden önce bağlantı kesilmeli');
-            return false;
-        }
-        
-        serverUrl = url;
-        return true;
     };
     
     // Public API
@@ -377,12 +482,44 @@ const WebSocketManager = (function() {
         init,
         connect,
         disconnect,
-        sendMessage,
+        sendJson,
         sendImage,
-        isConnected: isSocketConnected,
-        setServerUrl
+        startWebcamStream,
+        isConnected: checkConnection
     };
 })();
+
+/**
+ * Base64 verilerini temizler
+ * @param {string} dataUrl - Base64 formatında veri
+ * @returns {Promise<string>} - Temizlenmiş base64 verisi
+ */
+async function cleanBase64Data(dataUrl) {
+    // Eğer dataUrl base64 formatında değilse veya zaten temizse doğrudan döndür
+    if (!dataUrl || !dataUrl.startsWith('data:')) {
+        return dataUrl;
+    }
+
+    try {
+        // Base64 verinin data URL parçasını çıkart (data:image/jpeg;base64, kısmını ayır)
+        const base64Data = dataUrl.split(',')[1];
+        
+        // Doğru bir base64 string'i padding için 4'ün katı uzunluğunda olmalıdır
+        // Eksik padding'i tamamla
+        let paddedData = base64Data;
+        const padding = paddedData.length % 4;
+        if (padding > 0) {
+            paddedData += '='.repeat(4 - padding);
+        }
+        
+        // Temizlenmiş data URL'i oluştur (header kısmını geri ekle)
+        const header = dataUrl.split(',')[0];
+        return `${header},${paddedData}`;
+    } catch (error) {
+        console.error('Base64 temizleme hatası:', error);
+        return dataUrl; // Hata durumunda orijinal değeri döndür
+    }
+}
 
 // CommonJS ve ES module uyumluluğu
 if (typeof module !== 'undefined' && module.exports) {

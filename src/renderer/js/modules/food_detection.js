@@ -224,6 +224,51 @@ const FoodDetectionModule = (function() {
     };
     
     /**
+     * WebSocket ile gerçek zamanlı tespit yapar
+     * @param {string} frameData - Base64 formatında görüntü verisi
+     * @param {boolean} isRealtime - Gerçek zamanlı mı?
+     * @returns {Promise<Object>} - Tespit sonuçları
+     */
+    const detectFoodsViaWebSocket = async (frameData, isRealtime = false) => {
+        // WebSocketManager kontrol et
+        if (typeof WebSocketManager === 'undefined' || !WebSocketManager.isConnected()) {
+            return Promise.reject(new Error('WebSocket bağlantısı yok veya kullanılamıyor'));
+        }
+
+        try {
+            // Görüntü verilerini WebSocket üzerinden gönder
+            const response = await WebSocketManager.sendImage(
+                frameData,
+                isRealtime ? 'webcam' : 'image',
+                { confidence: settings.confidenceThreshold }
+            );
+            
+            if (response.success) {
+                // İşleme süresini saklayalım
+                lastProcessingTime = response.processing_time || 0;
+                
+                // GUI için sonuç formatını hazırla
+                return {
+                    success: true,
+                    data: response.data || [],
+                    processingTime: lastProcessingTime
+                };
+            } else {
+                return {
+                    success: false,
+                    error: response.error || 'Bilinmeyen hata'
+                };
+            }
+        } catch (error) {
+            console.error('WebSocket ile tespit hatası:', error);
+            return {
+                success: false,
+                error: error.message || 'Bağlantı hatası'
+            };
+        }
+    };
+
+    /**
      * WebSocket'ten gelen ham tespit sonuçlarını işler
      * @param {Array} detections - Ham tespit sonuçları
      * @returns {Array} - İşlenmiş yemek nesneleri
@@ -384,6 +429,7 @@ const FoodDetectionModule = (function() {
     return {
         init,
         detectFoodsFromImage,
+        detectFoodsViaWebSocket,
         calculateTotalPrice,
         calculateTotalCalories,
         updateSettings,

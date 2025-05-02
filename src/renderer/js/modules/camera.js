@@ -19,6 +19,7 @@ const CameraModule = (function() {
     let realtimeProcessing = false; // Gerçek zamanlı işlem devam ediyor mu?
     let realtimeAnalysisInterval = null; // Gerçek zamanlı analiz zamanlayıcısı
     let confidenceThreshold = 0.5; // YOLO güven eşiği
+    let realtimeStreamController = null; // WebSocket stream controller
 
     /**
      * Modülü başlatır ve gerekli DOM elementlerini yapılandırır
@@ -760,15 +761,110 @@ const CameraModule = (function() {
     const startRealtimeAnalysis = () => {
         if (realtimeAnalysisInterval) {
             clearInterval(realtimeAnalysisInterval);
+            realtimeAnalysisInterval = null;
         }
         
-        realtimeAnalysisInterval = setInterval(captureAndAnalyzeRealtimeFrame, 1500); // 1.5 saniyede bir kare analiz et
+        // WebSocket bağlantısı var mı ve WebSocketManager kullanılabilir mi kontrol et
+        if (websocketEnabled && typeof WebSocketManager !== 'undefined' && WebSocketManager.isConnected()) {
+            console.log('WebSocket ile gerçek zamanlı analiz başlatılıyor...');
+            
+            // WebSocketManager'ın webcam stream fonksiyonunu kullan
+            realtimeStreamController = WebSocketManager.startWebcamStream(
+                // Frame yakalama callback'i
+                async () => {
+                    if (!realtimeStreaming) return null;
+                    
+                    // Geçici canvas oluştur
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = realtimeVideo.videoWidth;
+                    tempCanvas.height = realtimeVideo.videoHeight;
+                    
+                    const context = tempCanvas.getContext('2d');
+                    context.drawImage(realtimeVideo, 0, 0, tempCanvas.width, tempCanvas.height);
+                    
+                    return tempCanvas.toDataURL('image/jpeg');
+                },
+                // Interval - ms cinsinden (daha akıcı olması için 200ms)
+                200,
+                // Konfigürasyon
+                {
+                    confidence: confidenceThreshold,
+                    // Sonuç callback'i
+                    onResult: (response) => {
+                        // Tespit sonuç canvas'ını güncelle
+                        const detectionResultCanvas = document.getElementById('detectionResultCanvas');
+                        if (detectionResultCanvas) {
+                            if (response.success && response.data && response.data.length > 0) {
+                                // Canvas boyutlarını ayarla (eğer video boyutları değiştiyse)
+                                if (detectionResultCanvas.width !== realtimeVideo.videoWidth || 
+                                    detectionResultCanvas.height !== realtimeVideo.videoHeight) {
+                                    detectionResultCanvas.width = realtimeVideo.videoWidth;
+                                    detectionResultCanvas.height = realtimeVideo.videoHeight;
+                                }
+                                
+                                // Video karesini canvas'a çiz
+                                const ctx = detectionResultCanvas.getContext('2d');
+                                ctx.clearRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
+                                ctx.drawImage(realtimeVideo, 0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
+                                
+                                // VisualizationModule ile çizim yapma
+                                if (typeof VisualizationModule !== 'undefined') {
+                                    // Tespitleri çiz (sonuç canvas'ı üzerine)
+                                    VisualizationModule.renderDetections(detectionResultCanvas, response.data);
+                                } else {
+                                    // Eski yöntem
+                                    drawDetections(detectionResultCanvas, response.data);
+                                }
+                                
+                                // Callback'i çağır
+                                if (imageAnalysisCallback) {
+                                    imageAnalysisCallback(response);
+                                }
+                            } else if (response.success) {
+                                // Tespit yoksa sadece video karesini göster
+                                const ctx = detectionResultCanvas.getContext('2d');
+                                ctx.clearRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
+                                ctx.drawImage(realtimeVideo, 0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
+                                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                                ctx.fillRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
+                                
+                                // "Tespit bulunamadı" mesajı
+                                ctx.font = '16px Arial';
+                                ctx.fillStyle = 'white';
+                                ctx.textAlign = 'center';
+                                ctx.fillText('Tespit bulunamadı', detectionResultCanvas.width / 2, detectionResultCanvas.height / 2);
+                            }
+                        }
+                    },
+                    // Hata callback'i
+                    onError: (error) => {
+                        console.error('Gerçek zamanlı tespit hatası:', error);
+                    }
+                }
+            );
+            
+            // Stream'i başlat
+            if (realtimeStreamController) {
+                realtimeStreamController.start();
+            }
+        } else {
+            // WebSocket yoksa eski yöntemi kullan (interval ile)
+            console.log('Interval ile gerçek zamanlı analiz başlatılıyor...');
+            realtimeAnalysisInterval = setInterval(captureAndAnalyzeRealtimeFrame, 1500); // 1.5 saniyede bir kare analiz et
+        }
     };
     
     /**
      * Gerçek zamanlı analizi durdurur
      */
     const stopRealtimeAnalysis = () => {
+        // WebSocket stream controller varsa onu durdur
+        if (realtimeStreamController) {
+            realtimeStreamController.stop();
+            realtimeStreamController = null;
+        }
+        
+        // Interval varsa onu temizle
         if (realtimeAnalysisInterval) {
             clearInterval(realtimeAnalysisInterval);
             realtimeAnalysisInterval = null;
