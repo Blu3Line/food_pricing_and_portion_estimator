@@ -260,6 +260,8 @@ const WebSocketManager = (function() {
                         classes: config.classes || []
                     }
                 };
+
+                console.log("gönderilen confidence değeri: ", message.config.confidence);
                 
                 // Mesajı gönder
                 socket.send(JSON.stringify(message));
