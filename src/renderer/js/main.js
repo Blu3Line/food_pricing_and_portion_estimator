@@ -130,6 +130,32 @@ document.addEventListener('DOMContentLoaded', async function() {
             foodListModuleReady = true;
         }
         
+        // Confidence Slider modülünü başlat
+        if (typeof ConfidenceSliderModule !== 'undefined') {
+            // Yemek tanıma modülünden başlangıç değerini al
+            let initialValue = 50; // Varsayılan değer
+            
+            if (foodDetectionModuleReady) {
+                const settings = FoodDetectionModule.getSettings();
+                initialValue = settings.confidenceThreshold;
+            }
+            
+            // Slider modülünü başlat
+            ConfidenceSliderModule.init({
+                sliderId: 'confidenceSlider',
+                valueId: 'thresholdValue',
+                initialValue: initialValue,
+                onChange: (value) => {
+                    // Değer değiştiğinde yemek tanıma modülüne bildir
+                    if (foodDetectionModuleReady) {
+                        FoodDetectionModule.updateSettings({
+                            confidenceThreshold: value
+                        });
+                    }
+                }
+            });
+        }
+        
         // Kamera modülünü başlat ve görüntü analiz callback'i ayarla
         if (typeof CameraModule !== 'undefined') {
             CameraModule.init(async function(imageDataOrResult) {
@@ -187,33 +213,5 @@ document.addEventListener('DOMContentLoaded', async function() {
                 resultControls.appendChild(saveButton);
             }
         }
-    }
-    
-    // Confidence slider dinleyicisi
-    const confidenceSlider = document.getElementById('confidenceSlider');
-    const confidenceValue = document.getElementById('confidenceValue');
-    
-    if (confidenceSlider && confidenceValue) {
-        // Başlangıç değerini ayarla
-        if (foodDetectionModuleReady) {
-            const settings = FoodDetectionModule.getSettings();
-            confidenceSlider.value = settings.confidenceThreshold / 100;
-            confidenceValue.textContent = `${settings.confidenceThreshold}%`;
-        } else {
-            confidenceSlider.value = 0.5;
-            confidenceValue.textContent = '50%';
-        }
-        
-        // Değişiklik dinleyicisi
-        confidenceSlider.addEventListener('input', (e) => {
-            const value = parseFloat(e.target.value);
-            confidenceValue.textContent = `${Math.round(value * 100)}%`;
-            
-            if (foodDetectionModuleReady) {
-                FoodDetectionModule.updateSettings({
-                    confidenceThreshold: Math.round(value * 100)
-                });
-            }
-        });
     }
 });

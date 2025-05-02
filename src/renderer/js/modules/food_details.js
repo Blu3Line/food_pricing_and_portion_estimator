@@ -47,10 +47,10 @@ const FoodDetailsModule = (function() {
         
         // Güven değeri
         const confidenceBar = document.getElementById('confidenceBar');
-        const confidenceValue = document.getElementById('confidenceValue');
-        if (confidenceBar && confidenceValue) {
+        const detectionConfidenceValue = document.getElementById('detectionConfidenceValue');
+        if (confidenceBar && detectionConfidenceValue) {
             confidenceBar.style.width = food.confidence + '%';
-            confidenceValue.textContent = food.confidence + '%';
+            detectionConfidenceValue.textContent = food.confidence + '%';
             
             // Güven değerine göre renklendirme
             if (food.confidence >= 80) {
@@ -158,10 +158,10 @@ const FoodDetailsModule = (function() {
         }
         
         const confidenceBar = document.getElementById('confidenceBar');
-        const confidenceValue = document.getElementById('confidenceValue');
-        if (confidenceBar && confidenceValue) {
+        const detectionConfidenceValue = document.getElementById('detectionConfidenceValue');
+        if (confidenceBar && detectionConfidenceValue) {
             confidenceBar.style.width = '0%';
-            confidenceValue.textContent = '0%';
+            detectionConfidenceValue.textContent = '0%';
         }
         
         const foodPrice = document.getElementById('foodPrice');
