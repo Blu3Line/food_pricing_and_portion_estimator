@@ -189,8 +189,14 @@
                                     <p>Gerçek zamanlı tespit için kamerayı başlatın</p>
                                 </div>
                                 <video id="realtimeVideo" autoplay playsinline></video>
-                                <canvas id="detectionOverlay" class="detection-overlay" style="display:none"></canvas>
                             </div>
+                            
+                            <!-- Gerçek zamanlı tespit sonuç bölgesi -->
+                            <div class="realtime-detection-result" id="realtimeDetectionResult" style="display:none; margin-top: 15px; border: 1px solid #ddd; border-radius: 8px; padding: 10px; background-color: #f9f9f9;">
+                                <h4>Tespit Sonuçları</h4>
+                                <canvas id="detectionResultCanvas" width="320" height="240" style="width: 100%; border-radius: 4px;"></canvas>
+                            </div>
+                            
                             <div class="camera-controls">
                                 <button id="startRealtimeBtn" class="btn btn-primary">
                                     <i class="fas fa-play"></i> Kamerayı Başlat

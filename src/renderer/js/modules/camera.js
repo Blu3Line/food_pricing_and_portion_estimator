@@ -515,18 +515,20 @@ const CameraModule = (function() {
             document.getElementById('startRealtimeBtn').style.display = 'none';
             document.getElementById('stopRealtimeBtn').style.display = 'inline-flex';
             
-            // Overlay canvas, eğer yoksa oluştur
-            let detectionOverlay = document.getElementById('detectionOverlay');
-            if (!detectionOverlay) {
-                detectionOverlay = document.createElement('canvas');
-                detectionOverlay.id = 'detectionOverlay';
-                detectionOverlay.className = 'detection-overlay';
-                const realtimeCameraView = document.getElementById('realtimeCameraView');
-                if (realtimeCameraView) {
-                    realtimeCameraView.appendChild(detectionOverlay);
+            // Sonuç görüntüleme alanını göster
+            const resultSection = document.getElementById('realtimeDetectionResult');
+            if (resultSection) {
+                resultSection.style.display = 'block';
+            }
+            
+            // Tespit sonuç canvas'ını hazırla
+            const resultCanvas = document.getElementById('detectionResultCanvas');
+            if (resultCanvas) {
+                // Canvas boyutlarını ayarla - varsayılanı kullan, gerekirse video boyutlarına göre ayarlanabilir
+                if (VisualizationModule && typeof VisualizationModule.setCanvasSize === 'function') {
+                    VisualizationModule.setCanvasSize(resultCanvas, 320, 240);
                 }
             }
-            detectionOverlay.style.display = 'block';
             
             // Gerçek zamanlı analiz başlat
             startRealtimeAnalysis();
@@ -568,10 +570,10 @@ const CameraModule = (function() {
             document.getElementById('startRealtimeBtn').style.display = 'inline-flex';
             document.getElementById('stopRealtimeBtn').style.display = 'none';
             
-            // Overlay'i gizle
-            const detectionOverlay = document.getElementById('detectionOverlay');
-            if (detectionOverlay) {
-                detectionOverlay.style.display = 'none';
+            // Sonuç görüntüleme alanını gizle
+            const resultSection = document.getElementById('realtimeDetectionResult');
+            if (resultSection) {
+                resultSection.style.display = 'none';
             }
             
             // Gerçek zamanlı analiz durdur
@@ -802,29 +804,29 @@ const CameraModule = (function() {
                         { confidence: confidenceThreshold }
                     );
                     
-                    // Deteksiyon overlay'i güncelle
-                    const detectionOverlay = document.getElementById('detectionOverlay');
-                    if (detectionOverlay) {
-                        // Overlay canvas boyutlarını ayarla
-                        detectionOverlay.width = realtimeVideo.videoWidth;
-                        detectionOverlay.height = realtimeVideo.videoHeight;
-                        
+                    // Tespit sonuç canvas'ını güncelle
+                    const detectionResultCanvas = document.getElementById('detectionResultCanvas');
+                    if (detectionResultCanvas) {
                         if (response.success && response.data && response.data.length > 0) {
-                            // Video karesinin kopyasını overlay'e çiz (önemli düzeltme)
-                            const ctx = detectionOverlay.getContext('2d');
-                            ctx.clearRect(0, 0, detectionOverlay.width, detectionOverlay.height);
-                            ctx.drawImage(realtimeVideo, 0, 0, detectionOverlay.width, detectionOverlay.height);
+                            // Canvas boyutlarını ayarla (eğer video boyutları değiştiyse)
+                            if (detectionResultCanvas.width !== realtimeVideo.videoWidth || 
+                                detectionResultCanvas.height !== realtimeVideo.videoHeight) {
+                                detectionResultCanvas.width = realtimeVideo.videoWidth;
+                                detectionResultCanvas.height = realtimeVideo.videoHeight;
+                            }
+                            
+                            // Video karesini canvas'a çiz
+                            const ctx = detectionResultCanvas.getContext('2d');
+                            ctx.clearRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
+                            ctx.drawImage(realtimeVideo, 0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
                             
                             // VisualizationModule ile çizim yapma
                             if (typeof VisualizationModule !== 'undefined') {
-                                // Tespitleri çiz (video üzerine)
-                                VisualizationModule.renderDetections(detectionOverlay, response.data);
-                                
-                                // Canvas'ı göster
-                                detectionOverlay.style.display = 'block';
+                                // Tespitleri çiz (sonuç canvas'ı üzerine)
+                                VisualizationModule.renderDetections(detectionResultCanvas, response.data);
                             } else {
                                 // Eski yöntem
-                                drawDetections(detectionOverlay, response.data);
+                                drawDetections(detectionResultCanvas, response.data);
                             }
                             
                             // Callback'i çağır
@@ -832,10 +834,18 @@ const CameraModule = (function() {
                                 imageAnalysisCallback(response);
                             }
                         } else if (response.success) {
-                            // Tespit yoksa overlay'i temizle ve video karesi koy
-                            const ctx = detectionOverlay.getContext('2d');
-                            ctx.clearRect(0, 0, detectionOverlay.width, detectionOverlay.height);
-                            ctx.drawImage(realtimeVideo, 0, 0, detectionOverlay.width, detectionOverlay.height);
+                            // Tespit yoksa sadece video karesini göster
+                            const ctx = detectionResultCanvas.getContext('2d');
+                            ctx.clearRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
+                            ctx.drawImage(realtimeVideo, 0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
+                            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                            ctx.fillRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
+                            
+                            // "Tespit bulunamadı" mesajı
+                            ctx.font = '16px Arial';
+                            ctx.fillStyle = 'white';
+                            ctx.textAlign = 'center';
+                            ctx.fillText('Tespit bulunamadı', detectionResultCanvas.width / 2, detectionResultCanvas.height / 2);
                         }
                     }
                     
