@@ -10,6 +10,284 @@ import websockets
 from ultralytics import YOLO
 from PIL import Image
 
+# Yemek veritabanı - tespit edilen sınıflar için ek bilgiler
+FOOD_DATABASE = {
+    'corba': {
+        'name': 'Ezogelin Çorbası',
+        'price': 15.00,
+        'calories': 120,
+        'nutrition': {
+            'protein': '3g',
+            'carbs': '15g',
+            'fat': '6g',
+            'fiber': '2g'
+        },
+        'ingredients': [
+            'Kırmızı mercimek',
+            'Bulgur',
+            'Pirinç',
+            'Kuru soğan',
+            'Sarımsak',
+            'Domates salçası',
+            'Tereyağı',
+            'Baharatlar'
+        ],
+        'allergens': [
+            'Gluten',
+            'Süt ürünleri (tereyağı)'
+        ]
+    },
+    'tavuk_but': {
+        'name': 'Izgara Tavuk But',
+        'price': 45.00,
+        'calories': 250,
+        'nutrition': {
+            'protein': '30g',
+            'carbs': '0g',
+            'fat': '15g',
+            'fiber': '0g'
+        },
+        'ingredients': [
+            'Tavuk but',
+            'Zeytinyağı',
+            'Sarımsak',
+            'Limon suyu',
+            'Baharatlar'
+        ],
+        'allergens': [
+            'Kümes hayvanları'
+        ]
+    },
+    'tavuk_kul_basti': {
+        'name': 'Tavuk Külbastı',
+        'price': 50.00,
+        'calories': 280,
+        'nutrition': {
+            'protein': '35g',
+            'carbs': '0g',
+            'fat': '16g',
+            'fiber': '0g'
+        },
+        'ingredients': [
+            'Tavuk göğsü',
+            'Zeytinyağı',
+            'Sarımsak',
+            'Limon suyu',
+            'Baharatlar'
+        ],
+        'allergens': [
+            'Kümes hayvanları'
+        ]
+    },
+    'pirinc_pilav': {
+        'name': 'Pirinç Pilavı',
+        'price': 20.00,
+        'calories': 180,
+        'nutrition': {
+            'protein': '3g',
+            'carbs': '35g',
+            'fat': '5g',
+            'fiber': '0.5g'
+        },
+        'ingredients': [
+            'Pirinç',
+            'Tereyağı',
+            'Şehriye',
+            'Tuz'
+        ],
+        'allergens': [
+            'Gluten (şehriye)',
+            'Süt ürünleri (tereyağı)'
+        ]
+    },
+    'bulgur_pilav': {
+        'name': 'Bulgur Pilavı',
+        'price': 18.00,
+        'calories': 170,
+        'nutrition': {
+            'protein': '4g',
+            'carbs': '32g',
+            'fat': '3g',
+            'fiber': '4g'
+        },
+        'ingredients': [
+            'Bulgur',
+            'Soğan',
+            'Domates salçası',
+            'Zeytinyağı',
+            'Baharatlar'
+        ],
+        'allergens': [
+            'Gluten'
+        ]
+    },
+    'salata': {
+        'name': 'Mevsim Salatası',
+        'price': 25.00,
+        'calories': 80,
+        'nutrition': {
+            'protein': '2g',
+            'carbs': '10g',
+            'fat': '4g',
+            'fiber': '5g'
+        },
+        'ingredients': [
+            'Domates',
+            'Salatalık',
+            'Marul',
+            'Kırmızı soğan',
+            'Zeytinyağı',
+            'Limon suyu'
+        ],
+        'allergens': []
+    },
+    'makarna': {
+        'name': 'Napoliten Makarna',
+        'price': 30.00,
+        'calories': 320,
+        'nutrition': {
+            'protein': '10g',
+            'carbs': '50g',
+            'fat': '8g',
+            'fiber': '3g'
+        },
+        'ingredients': [
+            'Makarna',
+            'Domates sosu',
+            'Sarımsak',
+            'Soğan',
+            'Zeytinyağı',
+            'Fesleğen'
+        ],
+        'allergens': [
+            'Gluten'
+        ]
+    },
+    'kuru_fasulye': {
+        'name': 'Kuru Fasulye',
+        'price': 30.00,
+        'calories': 220,
+        'nutrition': {
+            'protein': '15g',
+            'carbs': '30g',
+            'fat': '5g',
+            'fiber': '8g'
+        },
+        'ingredients': [
+            'Kuru fasulye',
+            'Soğan',
+            'Domates salçası',
+            'Zeytinyağı',
+            'Baharatlar'
+        ],
+        'allergens': [
+            'Baklagiller'
+        ]
+    },
+    'ayran': {
+        'name': 'Ayran',
+        'price': 10.00,
+        'calories': 75,
+        'nutrition': {
+            'protein': '4g',
+            'carbs': '6g',
+            'fat': '2g',
+            'fiber': '0g'
+        },
+        'ingredients': [
+            'Yoğurt',
+            'Su',
+            'Tuz'
+        ],
+        'allergens': [
+            'Süt ürünleri'
+        ]
+    },
+    'su': {
+        'name': 'Su (0.5L)',
+        'price': 5.00,
+        'calories': 0,
+        'nutrition': {
+            'protein': '0g',
+            'carbs': '0g',
+            'fat': '0g',
+            'fiber': '0g'
+        },
+        'ingredients': [
+            'İçme suyu'
+        ],
+        'allergens': []
+    },
+    'ekmek': {
+        'name': 'Ekmek',
+        'price': 2.00,
+        'calories': 80,
+        'nutrition': {
+            'protein': '3g',
+            'carbs': '15g',
+            'fat': '1g',
+            'fiber': '1g'
+        },
+        'ingredients': [
+            'Un',
+            'Su',
+            'Maya',
+            'Tuz'
+        ],
+        'allergens': [
+            'Gluten'
+        ]
+    },
+    'cig_kofte': {
+        'name': 'Çiğ Köfte',
+        'price': 35.00,
+        'calories': 220,
+        'nutrition': {
+            'protein': '8g',
+            'carbs': '40g',
+            'fat': '2g',
+            'fiber': '4g'
+        },
+        'ingredients': [
+            'Bulgur',
+            'Domates salçası',
+            'Biber salçası',
+            'Soğan',
+            'Baharatlar',
+            'Limon'
+        ],
+        'allergens': [
+            'Gluten'
+        ]
+    },
+    'kasik': {
+        'name': 'Kaşık',
+        'price': 0.50,
+        'calories': 0,
+        'nutrition': {
+            'protein': '0g',
+            'carbs': '0g',
+            'fat': '0g',
+            'fiber': '0g'
+        },
+        'ingredients': [],
+        'allergens': []
+    },
+    'catal': {
+        'name': 'Çatal',
+        'price': 0.50,
+        'calories': 0,
+        'nutrition': {
+            'protein': '0g',
+            'carbs': '0g',
+            'fat': '0g',
+            'fiber': '0g'
+        },
+        'ingredients': [],
+        'allergens': []
+    }
+}
+
 # YOLO model yükleme fonksiyonu
 def load_yolo_model(model_path):
     try:
@@ -79,6 +357,9 @@ async def process_image(model, image, confidence_threshold=0.5, filter_classes=N
                         max_contour = max(contours, key=cv2.contourArea)
                         polygon = max_contour.reshape(-1, 2).tolist()
                 
+                # Normalize edilmiş sınıf adı
+                normalized_class = class_name.lower().replace(' ', '_')
+                
                 # Sonuç objesi
                 detection = {
                     'class': class_name,
@@ -86,6 +367,26 @@ async def process_image(model, image, confidence_threshold=0.5, filter_classes=N
                     'bbox': bbox,
                     'segments': polygon
                 }
+                
+                # Veritabanından beslenme bilgilerini ekle
+                if normalized_class in FOOD_DATABASE:
+                    food_info = FOOD_DATABASE[normalized_class]
+                    detection['food_info'] = food_info
+                else:
+                    # Veritabanında yoksa genel bilgi oluştur
+                    detection['food_info'] = {
+                        'name': class_name,
+                        'price': round(15.0 + (confidence * 30.0), 2),  # Güven oranına göre fiyat
+                        'calories': int(100 + (confidence * 200)),      # Güven oranına göre kalori
+                        'nutrition': {
+                            'protein': f"{int(5 + (confidence * 15))}g",
+                            'carbs': f"{int(10 + (confidence * 30))}g",
+                            'fat': f"{int(3 + (confidence * 12))}g",
+                            'fiber': f"{int(1 + (confidence * 4))}g"
+                        },
+                        'ingredients': ["Bilinmiyor"],
+                        'allergens': []
+                    }
                 
                 # Sonucu ekle
                 detections.append(detection)
@@ -108,6 +409,17 @@ async def process_image(model, image, confidence_threshold=0.5, filter_classes=N
         "processing_time": 0.123 // İşlem süresi (saniye)
         }
         """
+        
+        # #gönderilen veriyi bir not defterine yazalım. türkçe karakterler için utf-8 ile açalım.
+        # #succes data ve processing_time'ı json formatında bir dosyaya yazalım.
+        # with open("result.json", "w", encoding="utf-8") as f:
+        #     json.dump({
+        #         'success': True,
+        #         'data': detections,
+        #         'processing_time': processing_time
+        #     }, f, ensure_ascii=False, indent=4)
+        
+        
         return {
             'success': True,
             'data': detections,

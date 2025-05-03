@@ -1,6 +1,7 @@
 /**
  * Ana JavaScript Dosyası - Electron Versiyonu
  * WebSocket entegrasyonu ile güncellendi
+ * SimulationModule entegrasyonu eklendi (otomatik mod)
  * Tüm modülleri birleştirir ve uygulamayı başlatır
  */
 document.addEventListener('DOMContentLoaded', async function() {
@@ -33,23 +34,44 @@ document.addEventListener('DOMContentLoaded', async function() {
             TabsModule.init();
         }
 
+        // Simülasyon modülünü başlat (otomatik yedek mekanizma olarak çalışması için)
+        let simulationModuleReady = false;
+        if (typeof SimulationModule !== 'undefined') {
+            SimulationModule.init({
+                confidenceThreshold: 0.5,
+                simulationDelay: 800
+            });
+            simulationModuleReady = true;
+            console.log('Simülasyon modülü başlatıldı (otomatik yedekleme için)');
+        }
+
         // WebSocket bağlantı durumu elementi
         const connectionStatusElement = document.getElementById('websocketStatus');
         
         // WebSocket Manager'ı başlat (varsa)
         let webSocketReady = false;
+        
         if (typeof WebSocketManager !== 'undefined') {
             WebSocketManager.init({
                 serverUrl: 'ws://localhost:8765',
                 connectionStatusElement: connectionStatusElement,
+                autoConnect: true, // Otomatik bağlanmayı dene
                 onConnect: () => {
                     console.log('WebSocket bağlantısı kuruldu');
                     // Bağlantı kurulduğunda UI'ı güncelle
                     const wsConnectBtn = document.getElementById('wsConnectBtn');
                     if (wsConnectBtn) {
-                        wsConnectBtn.textContent = 'Bağlantıyı Kes';
+                        wsConnectBtn.innerHTML = '<i class="fas fa-plug"></i> Bağlantıyı Kes';
                         wsConnectBtn.classList.remove('btn-primary');
                         wsConnectBtn.classList.add('btn-danger');
+                    }
+                    
+                    // Durum metnini güncelle
+                    if (connectionStatusElement) {
+                        const statusText = connectionStatusElement.querySelector('span:last-child');
+                        if (statusText) {
+                            statusText.textContent = 'Bağlantı Kuruldu';
+                        }
                     }
                 },
                 onDisconnect: () => {
@@ -57,13 +79,33 @@ document.addEventListener('DOMContentLoaded', async function() {
                     // Bağlantı kesildiğinde UI'ı güncelle
                     const wsConnectBtn = document.getElementById('wsConnectBtn');
                     if (wsConnectBtn) {
-                        wsConnectBtn.textContent = 'Bağlan';
+                        wsConnectBtn.innerHTML = '<i class="fas fa-plug"></i> Bağlan';
                         wsConnectBtn.classList.remove('btn-danger');
                         wsConnectBtn.classList.add('btn-primary');
+                    }
+                    
+                    // Durum metnini güncelle - simülasyon modülü hazırsa
+                    if (connectionStatusElement && WebSocketManager.isSimulationReady()) {
+                        const statusText = connectionStatusElement.querySelector('span:last-child');
+                        if (statusText) {
+                            statusText.textContent = 'Bağlantı Yok (Simülasyon Modu)';
+                        }
+                        connectionStatusElement.classList.remove('status-disconnected');
+                        connectionStatusElement.classList.add('status-simulation');
                     }
                 },
                 onError: (error, type) => {
                     console.error(`WebSocket hatası (${type}):`, error);
+                    
+                    // Hata durumunda, eğer simülasyon modülü hazırsa bunu belirt
+                    if (connectionStatusElement && WebSocketManager.isSimulationReady()) {
+                        const statusText = connectionStatusElement.querySelector('span:last-child');
+                        if (statusText) {
+                            statusText.textContent = 'Bağlantı Hatası (Simülasyon Modu)';
+                        }
+                        connectionStatusElement.classList.remove('status-error');
+                        connectionStatusElement.classList.add('status-simulation');
+                    }
                 }
             });
             
@@ -78,18 +120,16 @@ document.addEventListener('DOMContentLoaded', async function() {
                             await WebSocketManager.connect();
                         } catch (error) {
                             console.error('WebSocket bağlantı hatası:', error);
-                            alert('WebSocket sunucusuna bağlanılamadı. Python sunucusunun çalıştığından emin olun.');
+                            alert('WebSocket sunucusuna bağlanılamadı. Simülasyon modu otomatik olarak etkinleştirildi.');
                         }
                     }
                 });
-                
-                // Varsayılan olarak bağlanmayı dene
-                try {
-                    await WebSocketManager.connect();
-                    webSocketReady = true;
-                } catch (error) {
-                    console.warn('Otomatik WebSocket bağlantısı kurulamadı:', error);
-                }
+            }
+            
+            // Simülasyon modu butonu artık kullanılmıyor (otomatik olarak başlatılıyor kullanıcıya bırakılmıyor)
+            const simulationToggleBtn = document.getElementById('simulationToggleBtn');
+            if (simulationToggleBtn) {
+                simulationToggleBtn.style.display = 'none';
             }
         }
         

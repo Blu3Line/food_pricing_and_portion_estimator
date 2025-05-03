@@ -694,16 +694,16 @@ const CameraModule = (function() {
                     detectedItemsEl.innerHTML = '<li class="error-item">Tespit sırasında bir hata oluştu. Bağlantınızı kontrol edin.</li>';
                 }
                 
-                // Hata durumunda Electron API'ye geri dön (eğer varsa)
-                if (window.electronAPI && window.electronAPI.detectFood) {
-                    fallbackToElectronAPI();
+                // Hata durumunda SimulationModule'e geri dön (eğer varsa)
+                if (typeof SimulationModule !== 'undefined') {
+                    useSimulationFallback(resultImage.src);
                 }
             }
-        } else if (window.electronAPI && window.electronAPI.detectFood) {
-            // WebSocket bağlantısı yoksa Electron API kullan
-            fallbackToElectronAPI();
+        } else if (typeof SimulationModule !== 'undefined') {
+            // WebSocket bağlantısı yoksa SimulationModule kullan
+            useSimulationFallback(resultImage.src);
         } else {
-            // Ne WebSocket ne de Electron API yoksa hata göster
+            // Ne WebSocket ne de SimulationModule yoksa hata göster
             console.error('Yemek tespiti için hiçbir mekanizma bulunamadı');
             if (detectedItemsEl) {
                 detectedItemsEl.innerHTML = '<li class="error-item">Tespit sistemi kullanılamıyor. Lütfen bağlantı durumunu kontrol edin.</li>';
@@ -712,23 +712,38 @@ const CameraModule = (function() {
     };
     
     /**
-     * Yedek olarak Electron API'yi kullanır
+     * Yedek olarak SimulationModule'ü kullanır
+     * @param {string} imageData - Base64 formatında resim verisi
      */
-    const fallbackToElectronAPI = async () => {
+    const useSimulationFallback = async (imageData) => {
         try {
             const detectedItemsEl = document.getElementById('detectedItems');
             if (detectedItemsEl) {
-                detectedItemsEl.innerHTML += '<li>WebSocket bağlantısı kurulamadı, Electron API üzerinden tespit ediliyor...</li>';
+                detectedItemsEl.innerHTML += '<li>WebSocket bağlantısı kurulamadı, simülasyon modu kullanılıyor...</li>';
             }
             
-            const detectedFoods = await window.electronAPI.detectFood(resultImage.src);
+            // Simülasyon modülüyle tespit yap
+            const response = await SimulationModule.simulateDetection({
+                confidence: confidenceThreshold
+            });
+            
+            if (response.success) {
+                // Görüntünün üzerine tespitleri çiz - VisualizationModule kullan
+                if (typeof VisualizationModule !== 'undefined') {
+                    // Orijinal görüntü üzerine tespitleri çiz
+                    await VisualizationModule.displayDetectionsOnImage(resultImage, response.data);
+                } else {
+                    // Eski görselleştirme yöntemi için
+                    visualizeResults(resultImage, response.data);
+                }
+            }
             
             // Tespit sonuçlarını işle
             if (imageAnalysisCallback) {
-                imageAnalysisCallback(detectedFoods);
+                imageAnalysisCallback(response);
             }
         } catch (error) {
-            console.error('Yemek tespiti hatası:', error);
+            console.error('Simülasyon tespiti hatası:', error);
             const detectedItemsEl = document.getElementById('detectedItems');
             if (detectedItemsEl) {
                 detectedItemsEl.innerHTML = '<li class="error-item">Tespit sırasında bir hata oluştu. Lütfen tekrar deneyin.</li>';
@@ -949,17 +964,52 @@ const CameraModule = (function() {
                     console.error('Gerçek zamanlı tespit hatası:', error);
                     // Hata durumunda sessizce devam et, bir sonraki kare için yeniden dene
                 }
-            } else if (window.electronAPI && window.electronAPI.detectFood) {
-                // WebSocket bağlantısı yoksa Electron API kullan
+            } else if (typeof SimulationModule !== 'undefined') {
+                // WebSocket bağlantısı yoksa simülasyon modülünü kullan
                 try {
-                    const detectedFoods = await window.electronAPI.detectFood(frameData);
+                    const response = await SimulationModule.simulateDetection({
+                        confidence: confidenceThreshold
+                    });
+                    
+                    // Tespit sonuç canvas'ını güncelle
+                    const detectionResultCanvas = document.getElementById('detectionResultCanvas');
+                    if (detectionResultCanvas && response.success) {
+                        // Canvas boyutlarını ayarla
+                        if (detectionResultCanvas.width !== realtimeVideo.videoWidth || 
+                            detectionResultCanvas.height !== realtimeVideo.videoHeight) {
+                            detectionResultCanvas.width = realtimeVideo.videoWidth;
+                            detectionResultCanvas.height = realtimeVideo.videoHeight;
+                        }
+                        
+                        // Video karesini canvas'a çiz
+                        const ctx = detectionResultCanvas.getContext('2d');
+                        ctx.clearRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
+                        ctx.drawImage(realtimeVideo, 0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
+                        
+                        // Tespitleri çiz
+                        if (response.data && response.data.length > 0) {
+                            if (typeof VisualizationModule !== 'undefined') {
+                                VisualizationModule.renderDetections(detectionResultCanvas, response.data);
+                            } else {
+                                drawDetections(detectionResultCanvas, response.data);
+                            }
+                        } else {
+                            // Tespit yoksa mesaj göster
+                            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                            ctx.fillRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
+                            ctx.font = '16px Arial';
+                            ctx.fillStyle = 'white';
+                            ctx.textAlign = 'center';
+                            ctx.fillText('Tespit bulunamadı (Simülasyon)', detectionResultCanvas.width / 2, detectionResultCanvas.height / 2);
+                        }
+                    }
                     
                     // Tespit sonuçlarını işle
                     if (imageAnalysisCallback) {
-                        imageAnalysisCallback(detectedFoods);
+                        imageAnalysisCallback(response);
                     }
                 } catch (error) {
-                    console.error('Gerçek zamanlı Electron tespit hatası:', error);
+                    console.error('Gerçek zamanlı simülasyon tespiti hatası:', error);
                 }
             }
             

@@ -1,148 +1,9 @@
 /**
- * Yemek Tanıma Modülü - Electron Versiyonu
- * WebSocket entegrasyonu ile güncellendi
+ * Yemek Tanıma Modülü - Sadeleştirilmiş Versiyon
+ * WebSocket entegrasyonu ve SimulationModule entegrasyonu içerir
+ * Gereksiz Electron API referansları kaldırıldı
  */
 const FoodDetectionModule = (function() {
-    // Örnek yemek veritabanı - Gerçek uygulamada bunlar API'den gelecek
-    const foodDatabase = {
-        'çorba': {
-            name: 'Ezogelin Çorbası',
-            price: 15.00,
-            calories: 120,
-            nutrition: {
-                protein: "3g",
-                carbs: "15g",
-                fat: "6g",
-                fiber: "2g"
-            },
-            ingredients: [
-                "Kırmızı mercimek",
-                "Bulgur",
-                "Pirinç",
-                "Kuru soğan",
-                "Sarımsak",
-                "Domates salçası",
-                "Tereyağı",
-                "Baharatlar"
-            ],
-            allergens: [
-                "Gluten",
-                "Süt ürünleri (tereyağı)"
-            ],
-            confidence: 0
-        },
-        'tavuk': {
-            name: 'Izgara Tavuk',
-            price: 45.00,
-            calories: 250,
-            nutrition: {
-                protein: "30g",
-                carbs: "0g",
-                fat: "15g",
-                fiber: "0g"
-            },
-            ingredients: [
-                "Tavuk göğsü",
-                "Zeytinyağı",
-                "Sarımsak",
-                "Limon suyu",
-                "Baharatlar"
-            ],
-            allergens: [
-                "Kümes hayvanları"
-            ],
-            confidence: 0
-        },
-        'pilav': {
-            name: 'Pirinç Pilavı',
-            price: 20.00,
-            calories: 180,
-            nutrition: {
-                protein: "3g",
-                carbs: "35g",
-                fat: "5g",
-                fiber: "0.5g"
-            },
-            ingredients: [
-                "Pirinç",
-                "Tereyağı",
-                "Şehriye",
-                "Tuz"
-            ],
-            allergens: [
-                "Gluten (şehriye)",
-                "Süt ürünleri (tereyağı)"
-            ],
-            confidence: 0
-        },
-        'salata': {
-            name: 'Mevsim Salatası',
-            price: 25.00,
-            calories: 80,
-            nutrition: {
-                protein: "2g",
-                carbs: "10g",
-                fat: "4g",
-                fiber: "5g"
-            },
-            ingredients: [
-                "Domates",
-                "Salatalık",
-                "Marul",
-                "Kırmızı soğan",
-                "Zeytinyağı",
-                "Limon suyu"
-            ],
-            allergens: [],
-            confidence: 0
-        },
-        'makarna': {
-            name: 'Napoliten Makarna',
-            price: 30.00,
-            calories: 320,
-            nutrition: {
-                protein: "10g",
-                carbs: "50g",
-                fat: "8g",
-                fiber: "3g"
-            },
-            ingredients: [
-                "Makarna",
-                "Domates sosu",
-                "Sarımsak",
-                "Soğan",
-                "Zeytinyağı",
-                "Fesleğen"
-            ],
-            allergens: [
-                "Gluten"
-            ],
-            confidence: 0
-        },
-        'kuru_fasulye': {
-            name: 'Kuru Fasulye',
-            price: 30.00,
-            calories: 220,
-            nutrition: {
-                protein: "15g",
-                carbs: "30g",
-                fat: "5g",
-                fiber: "8g"
-            },
-            ingredients: [
-                "Kuru fasulye",
-                "Soğan",
-                "Domates salçası",
-                "Zeytinyağı",
-                "Baharatlar"
-            ],
-            allergens: [
-                "Baklagiller"
-            ],
-            confidence: 0
-        }
-    };
-
     // Modül ayarları
     let settings = {
         confidenceThreshold: 50, // Minimum güven eşiği (%)
@@ -159,7 +20,7 @@ const FoodDetectionModule = (function() {
         settings.websocketEnabled = typeof WebSocketManager !== 'undefined';
         console.log(`WebSocket entegrasyonu: ${settings.websocketEnabled ? 'Aktif' : 'Pasif'}`);
         
-        // Electron ortamında ayarları yükle
+        // Electron ortamında ayarları yükle (sadece confidence threshold için)
         if (window.environment && window.environment.isElectron && window.electronAPI) {
             try {
                 const appSettings = await window.electronAPI.getSettings();
@@ -170,6 +31,14 @@ const FoodDetectionModule = (function() {
             } catch (error) {
                 console.error("Ayarlar yüklenirken hata:", error);
             }
+        }
+        
+        // Simülasyon modülünün hazır olduğundan emin ol
+        if (typeof SimulationModule !== 'undefined') {
+            SimulationModule.init({
+                confidenceThreshold: settings.confidenceThreshold / 100
+            });
+            console.log("Simülasyon modülü başlatıldı");
         }
     };
 
@@ -182,45 +51,47 @@ const FoodDetectionModule = (function() {
         // Yükleme göstergesi
         console.log("Yemek tespit ediliyor...");
         
-        // WebSocket yanıtını kontrol et (yeni entegrasyon için)
-        if (settings.websocketEnabled && 
-            typeof imageDataOrResult === 'object' && 
-            imageDataOrResult.hasOwnProperty('success')) {
-            
-            // Bu bir WebSocket yanıtı, doğrudan işle
-            console.log("WebSocket yanıtı işleniyor:", imageDataOrResult);
-            
-            if (imageDataOrResult.success) {
-                return processDetectionResults(imageDataOrResult.data);
-            } else {
-                console.error("WebSocket tespit hatası:", imageDataOrResult.error);
-                return []; // Boş liste döndür
-            }
+        // Eğer giriş parametresi zaten işlenmiş bir sonuç ise direkt döndür
+        if (typeof imageDataOrResult === 'object' && Array.isArray(imageDataOrResult)) {
+            return imageDataOrResult;
         }
         
-        // Electron ortamında, doğrudan tespit sonuçları olabilir (eski yöntem)
-        if (typeof imageDataOrResult === 'object' && !Array.isArray(imageDataOrResult) && !imageDataOrResult.hasOwnProperty('success')) {
-            return imageDataOrResult; // Zaten işlenmiş tespit sonuçları
-        }
-        
-        // Electron API'si varsa, tespit için kullan (WebSocket bağlantısı yoksa yedek)
-        if (window.environment && window.environment.isElectron && window.electronAPI && window.electronAPI.detectFood) {
+        // 1. WebSocket ile tespit dene (bağlantı varsa)
+        if (settings.websocketEnabled && WebSocketManager.isConnected()) {
             try {
-                const detectedFoods = await window.electronAPI.detectFood(imageDataOrResult);
-                return detectedFoods;
+                console.log("WebSocket ile tespit deneniyor...");
+                const response = await WebSocketManager.sendImage(
+                    imageDataOrResult, 
+                    'image', 
+                    { confidence: settings.confidenceThreshold / 100 }
+                );
+                
+                if (response.success) {
+                    console.log("WebSocket tespiti başarılı!");
+                    return processDetectionResults(response.data);
+                }
             } catch (error) {
-                console.error("Electron API ile tespit hatası:", error);
-                return simulateDetection(); // Hata durumunda simülasyon
+                console.warn("WebSocket ile tespit başarısız:", error.message);
             }
         }
         
-        // Electron yoksa veya API çağrısı başarısız olduysa, simülasyon yap
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                const detectedFoods = simulateDetection();
-                resolve(detectedFoods);
-            }, 1500);
-        });
+        // 2. Doğrudan simülasyon modülünü kullan (WebSocket yoksa/başarısızsa)
+        if (typeof SimulationModule !== 'undefined') {
+            console.log("Simülasyon modülü kullanılıyor...");
+            try {
+                const simResult = await SimulationModule.simulateDetection({
+                    confidence: settings.confidenceThreshold / 100
+                });
+                console.log("Simülasyon sonuçları:", simResult);
+                return processDetectionResults(simResult.data);
+            } catch (error) {
+                console.error("Simülasyon başarısız:", error);
+            }
+        }
+        
+        // Hiçbir yöntem çalışmadıysa boş liste döndür
+        console.error("Hiçbir tespit yöntemi çalışmadı!");
+        return [];
     };
     
     /**
@@ -230,42 +101,52 @@ const FoodDetectionModule = (function() {
      * @returns {Promise<Object>} - Tespit sonuçları
      */
     const detectFoodsViaWebSocket = async (frameData, isRealtime = false) => {
-        // WebSocketManager kontrol et
-        if (typeof WebSocketManager === 'undefined' || !WebSocketManager.isConnected()) {
-            return Promise.reject(new Error('WebSocket bağlantısı yok veya kullanılamıyor'));
-        }
-
-        try {
-            // Görüntü verilerini WebSocket üzerinden gönder
-            const response = await WebSocketManager.sendImage(
-                frameData,
-                isRealtime ? 'webcam' : 'image',
-                { confidence: settings.confidenceThreshold }
-            );
-            
-            if (response.success) {
-                // İşleme süresini saklayalım
-                lastProcessingTime = response.processing_time || 0;
+        // 1. WebSocket bağlantısı varsa onu kullan
+        if (settings.websocketEnabled && WebSocketManager.isConnected()) {
+            try {
+                const response = await WebSocketManager.sendImage(
+                    frameData,
+                    isRealtime ? 'webcam' : 'image',
+                    { confidence: settings.confidenceThreshold / 100 }
+                );
                 
-                // GUI için sonuç formatını hazırla
+                if (response.success) {
+                    return {
+                        success: true,
+                        data: response.data,
+                        processingTime: response.processing_time || 0,
+                        isSimulation: false
+                    };
+                }
+            } catch (error) {
+                console.warn("WebSocket gerçek zamanlı tespit başarısız:", error.message);
+            }
+        }
+        
+        // 2. Simülasyon modülünü kullan
+        if (typeof SimulationModule !== 'undefined') {
+            try {
+                const response = isRealtime ? 
+                    await SimulationModule.simulateRealtimeDetection({ confidence: settings.confidenceThreshold / 100 }) :
+                    await SimulationModule.simulateDetection({ confidence: settings.confidenceThreshold / 100 });
+                
                 return {
                     success: true,
-                    data: response.data || [],
-                    processingTime: lastProcessingTime
+                    data: response.data,
+                    processingTime: response.processing_time || 0,
+                    isSimulation: true
                 };
-            } else {
-                return {
-                    success: false,
-                    error: response.error || 'Bilinmeyen hata'
-                };
+            } catch (error) {
+                console.error("Simülasyon tespiti başarısız:", error);
             }
-        } catch (error) {
-            console.error('WebSocket ile tespit hatası:', error);
-            return {
-                success: false,
-                error: error.message || 'Bağlantı hatası'
-            };
         }
+        
+        // Başarısız olursa hata objesi döndür
+        return {
+            success: false,
+            error: "Tespit için desteklenen bir yöntem bulunamadı",
+            data: []
+        };
     };
 
     /**
@@ -286,43 +167,22 @@ const FoodDetectionModule = (function() {
         for (let i = 0; i < detections.length; i++) {
             const detection = detections[i];
             
-            // Türkçe karakter ve boşluk problemlerini düzelt, küçük harfe dönüştür
-            const normalizedClass = detection.class.toLowerCase()
-                .replace(/\s+/g, '_')
-                .replace(/ğ/g, 'g')
-                .replace(/ü/g, 'u')
-                .replace(/ş/g, 's')
-                .replace(/ı/g, 'i')
-                .replace(/ö/g, 'o')
-                .replace(/ç/g, 'c');
-            
-            // Sınıfı veritabanında ara
-            let foodData = foodDatabase[normalizedClass];
-            
-            // Veritabanında yoksa veya bulunamazsa genel bir giriş oluştur
-            if (!foodData) {
-                console.log(`Sınıf '${detection.class}' veritabanında bulunamadı, otomatik oluşturuluyor`);
-                
-                foodData = {
-                    name: detection.class, // Orijinal sınıf adını kullan
-                    price: Math.floor(Math.random() * 30) + 15, // Rastgele fiyat (15-45 TL)
-                    calories: Math.floor(Math.random() * 200) + 100, // Rastgele kalori (100-300)
-                    nutrition: {
-                        protein: `${Math.floor(Math.random() * 20)}g`,
-                        carbs: `${Math.floor(Math.random() * 40)}g`,
-                        fat: `${Math.floor(Math.random() * 15)}g`,
-                        fiber: `${Math.floor(Math.random() * 5)}g`
-                    },
-                    ingredients: ["İçerik bilgisi henüz eklenmedi"],
-                    allergens: []
-                };
+            // Temel özelliklerini kontrol et
+            if (!detection.class || !detection.confidence || !detection.bbox) {
+                console.warn('Geçersiz tespit nesnesi, atlanıyor:', detection);
+                continue;
             }
+            
+            // Food info özelliğini kontrol et
+            const foodInfo = detection.food_info || {};
             
             // Her bir tespit için bağımsız bir nesne oluştur
             const detectedFood = {
-                ...JSON.parse(JSON.stringify(foodData)),
-                id: `${normalizedClass}_${i}`, // Benzersiz tespit ID'si
-                confidence: detection.confidence * 100, // Yüzdelik değer (0-100)
+                id: `${detection.class}_${i}`, // Benzersiz tespit ID'si
+                name: foodInfo.name || detection.class,
+                price: foodInfo.price || 0,
+                calories: foodInfo.calories || 0,
+                confidence: Math.round(detection.confidence * 100), // Yüzdelik değer (0-100)
                 boundingBox: {
                     x: detection.bbox[0],
                     y: detection.bbox[1],
@@ -330,7 +190,15 @@ const FoodDetectionModule = (function() {
                     height: detection.bbox[3] - detection.bbox[1]
                 },
                 bbox: detection.bbox, // Orijinal bbox verisini de sakla
-                segments: detection.segments // Segmentasyon verisi
+                segments: detection.segments || [], // Segmentasyon verisi
+                nutrition: foodInfo.nutrition || {
+                    protein: "0g",
+                    carbs: "0g",
+                    fat: "0g",
+                    fiber: "0g"
+                },
+                ingredients: foodInfo.ingredients || [],
+                allergens: foodInfo.allergens || []
             };
             
             // Sadece eşik değeri üzerindeki tespitleri ekle
@@ -341,48 +209,6 @@ const FoodDetectionModule = (function() {
         
         // Güven skoruna göre sırala (yüksekten düşüğe)
         return processedResults.sort((a, b) => b.confidence - a.confidence);
-    };
-
-    /**
-     * Yemek tespitini simüle eder (gerçekçi YOLO davranışını yansıtır)
-     * @returns {Array} - Tespit edilen yemekler listesi
-     */
-    const simulateDetection = () => {
-        // Rastgele 1-4 yemek tespiti yap
-        const numberOfDetections = Math.floor(Math.random() * 4) + 1;
-        const foodKeys = Object.keys(foodDatabase);
-        const detectedFoods = [];
-        
-        for (let i = 0; i < numberOfDetections; i++) {
-            // Rastgele bir yemek türü seç
-            const randomIndex = Math.floor(Math.random() * foodKeys.length);
-            const foodKey = foodKeys[randomIndex];
-            
-            // Yemek veritabanından bilgileri al
-            const foodData = foodDatabase[foodKey];
-            
-            // Her bir tespit için bağımsız bir nesne oluştur
-            const detectedFood = { 
-                ...JSON.parse(JSON.stringify(foodData)), 
-                id: `${foodKey}_${i}`, // Benzersiz tespit ID'si
-                // Her tespit için ayrı rastgele güven skoru (%50-98 arası)
-                confidence: Math.floor(Math.random() * 48) + 50,
-                // Tespitler için örnek bounding box
-                boundingBox: {
-                    x: Math.floor(Math.random() * 400),
-                    y: Math.floor(Math.random() * 300),
-                    width: Math.floor(Math.random() * 100) + 50,
-                    height: Math.floor(Math.random() * 100) + 50
-                }
-            };
-            
-            detectedFoods.push(detectedFood);
-        }
-        
-        // Güven skoruna göre sırala (yüksekten düşüğe)
-        return detectedFoods
-            .filter(food => food.confidence >= settings.confidenceThreshold) // Eşik değeri üzerindeki tespitler
-            .sort((a, b) => b.confidence - a.confidence);
     };
 
     /**
@@ -410,6 +236,13 @@ const FoodDetectionModule = (function() {
     const updateSettings = async (newSettings) => {
         if (newSettings.confidenceThreshold !== undefined) {
             settings.confidenceThreshold = newSettings.confidenceThreshold;
+            
+            // Simülasyon modülü konfigürasyonunu da güncelle
+            if (typeof SimulationModule !== 'undefined') {
+                SimulationModule.updateConfig({
+                    confidenceThreshold: settings.confidenceThreshold / 100
+                });
+            }
         }
         
         // Electron ortamında ayarları kaydet
