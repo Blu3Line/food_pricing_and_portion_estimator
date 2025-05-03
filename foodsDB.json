@@ -1,0 +1,314 @@
+{
+    "corba":{
+       "name":"Mercimek Çorbası",
+       "price":15.00,
+       "calories":120,
+       "nutrition":{
+          "protein":"3g",
+          "carbs":"15g",
+          "fat":"6g",
+          "fiber":"2g"
+       },
+       "ingredients":[
+          "Kırmızı mercimek",
+          "Bulgur",
+          "Pirinç",
+          "Kuru soğan",
+          "Sarımsak",
+          "Domates salçası",
+          "Tereyağı",
+          "Baharatlar"
+       ],
+       "allergens":[
+          "Gluten",
+          "Süt ürünleri (tereyağı)"
+       ]
+    },
+    "tavuk_but":{
+       "name":"Tavuk But",
+       "price":45.00,
+       "calories":250,
+       "nutrition":{
+          "protein":"30g",
+          "carbs":"0g",
+          "fat":"15g",
+          "fiber":"0g"
+       },
+       "ingredients":[
+          "Tavuk but",
+          "Zeytinyağı",
+          "Sarımsak",
+          "Limon suyu",
+          "Baharatlar"
+       ],
+       "allergens":[
+          "Kümes hayvanları"
+       ]
+    },
+    "tavuk_kul_basti":{
+       "name":"Tavuk Külbastı",
+       "price":50.00,
+       "calories":280,
+       "nutrition":{
+          "protein":"35g",
+          "carbs":"0g",
+          "fat":"16g",
+          "fiber":"0g"
+       },
+       "ingredients":[
+          "Tavuk göğsü",
+          "Zeytinyağı",
+          "Sarımsak",
+          "Limon suyu",
+          "Baharatlar"
+       ],
+       "allergens":[
+          "Kümes hayvanları"
+       ]
+    },
+    "pirinc_pilav":{
+       "name":"Pirinç Pilavı",
+       "price":20.00,
+       "calories":180,
+       "nutrition":{
+          "protein":"3g",
+          "carbs":"35g",
+          "fat":"5g",
+          "fiber":"0.5g"
+       },
+       "ingredients":[
+          "Pirinç",
+          "Tereyağı",
+          "Şehriye",
+          "Tuz"
+       ],
+       "allergens":[
+          "Gluten (şehriye)",
+          "Süt ürünleri (tereyağı)"
+       ]
+    },
+    "bulgur_pilav":{
+       "name":"Bulgur Pilavı",
+       "price":18.00,
+       "calories":170,
+       "nutrition":{
+          "protein":"4g",
+          "carbs":"32g",
+          "fat":"3g",
+          "fiber":"4g"
+       },
+       "ingredients":[
+          "Bulgur",
+          "Soğan",
+          "Domates salçası",
+          "Zeytinyağı",
+          "Baharatlar"
+       ],
+       "allergens":[
+          "Gluten"
+       ]
+    },
+    "salata":{
+       "name":"Salata",
+       "price":25.00,
+       "calories":80,
+       "nutrition":{
+          "protein":"2g",
+          "carbs":"10g",
+          "fat":"4g",
+          "fiber":"5g"
+       },
+       "ingredients":[
+          "Domates",
+          "Salatalık",
+          "Marul",
+          "Kırmızı soğan",
+          "Zeytinyağı",
+          "Limon suyu"
+       ],
+       "allergens":[
+          
+       ]
+    },
+    "makarna":{
+       "name":"Makarna",
+       "price":30.00,
+       "calories":320,
+       "nutrition":{
+          "protein":"10g",
+          "carbs":"50g",
+          "fat":"8g",
+          "fiber":"3g"
+       },
+       "ingredients":[
+          "Makarna",
+          "Domates sosu",
+          "Sarımsak",
+          "Soğan",
+          "Zeytinyağı",
+          "Fesleğen"
+       ],
+       "allergens":[
+          "Gluten"
+       ]
+    },
+    "kuru_fasulye":{
+       "name":"Kuru Fasulye",
+       "price":30.00,
+       "calories":220,
+       "nutrition":{
+          "protein":"15g",
+          "carbs":"30g",
+          "fat":"5g",
+          "fiber":"8g"
+       },
+       "ingredients":[
+          "Kuru fasulye",
+          "Soğan",
+          "Domates salçası",
+          "Zeytinyağı",
+          "Baharatlar"
+       ],
+       "allergens":[
+          "Baklagiller"
+       ]
+    },
+    "ayran":{
+       "name":"Ayran",
+       "price":10.00,
+       "calories":75,
+       "nutrition":{
+          "protein":"4g",
+          "carbs":"6g",
+          "fat":"2g",
+          "fiber":"0g"
+       },
+       "ingredients":[
+          "Yoğurt",
+          "Su",
+          "Tuz"
+       ],
+       "allergens":[
+          "Süt ürünleri"
+       ]
+    },
+    "su":{
+       "name":"Su (0.3cl)",
+       "price":5.00,
+       "calories":0,
+       "nutrition":{
+          "protein":"0g",
+          "carbs":"0g",
+          "fat":"0g",
+          "fiber":"0g"
+       },
+       "ingredients":[
+          "İçme suyu"
+       ],
+       "allergens":[
+          
+       ]
+    },
+    "ekmek":{
+       "name":"Ekmek",
+       "price":2.00,
+       "calories":80,
+       "nutrition":{
+          "protein":"3g",
+          "carbs":"15g",
+          "fat":"1g",
+          "fiber":"1g"
+       },
+       "ingredients":[
+          "Un",
+          "Su",
+          "Maya",
+          "Tuz"
+       ],
+       "allergens":[
+          "Gluten"
+       ]
+    },
+    "cig_kofte":{
+       "name":"Çiğ Köfte",
+       "price":35.00,
+       "calories":220,
+       "nutrition":{
+          "protein":"8g",
+          "carbs":"40g",
+          "fat":"2g",
+          "fiber":"4g"
+       },
+       "ingredients":[
+          "Bulgur",
+          "Domates salçası",
+          "Biber salçası",
+          "Soğan",
+          "Baharatlar",
+          "Limon"
+       ],
+       "allergens":[
+          "Gluten"
+       ]
+    },
+    "kasik":{
+       "name":"Kaşık",
+       "price":0.50,
+       "calories":0,
+       "nutrition":{
+          "protein":"0g",
+          "carbs":"0g",
+          "fat":"0g",
+          "fiber":"0g"
+       },
+       "ingredients":[
+          
+       ],
+       "allergens":[
+          
+       ]
+    },
+    "catal":{
+       "name":"Çatal",
+       "price":0.50,
+       "calories":0,
+       "nutrition":{
+          "protein":"0g",
+          "carbs":"0g",
+          "fat":"0g",
+          "fiber":"0g"
+       },
+       "ingredients":[
+          
+       ],
+       "allergens":[
+          
+       ]
+
+    },
+    "tavuk_sote":{
+       "name":"Tavuk Sote",
+       "price":48.00,
+       "calories":320,
+       "nutrition":{
+          "protein":"28g",
+          "carbs":"12g",
+          "fat":"18g",
+          "fiber":"3g"
+       },
+       "ingredients":[
+          "Tavuk göğsü",
+          "Yeşil biber",
+          "Kırmızı biber",
+          "Soğan",
+          "Domates",
+          "Sarımsak",
+          "Zeytinyağı",
+          "Domates salçası",
+          "Baharatlar"
+       ],
+       "allergens":[
+          "Kümes hayvanları"
+       ]
+    }
+ }
