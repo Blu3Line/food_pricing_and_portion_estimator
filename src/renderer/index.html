@@ -7,6 +7,7 @@
     <!-- CSS dosyalarını içe aktar -->
     <link rel="stylesheet" href="css/main.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
 </head>
 <body data-page-type="home">
     <!-- Header Bölümü -->
@@ -30,6 +31,29 @@
 
         <div class="main-container">
             <div class="left-column">
+                <!-- Backend Bağlantı Durumu -->
+                <div class="connection-status-bar">
+                    <div id="websocketStatus" class="websocket-status status-disconnected">
+                        <span class="status-indicator"></span>
+                        <span>Bağlantı Kesildi</span>
+                    </div>
+                    <div class="connection-controls">
+                        <button id="wsConnectBtn" class="btn btn-primary btn-sm">
+                            <i class="fas fa-plug"></i> Bağlan
+                        </button>
+                        <button id="simulationToggleBtn" class="btn btn-secondary btn-sm" title="Simülasyon modunu aç/kapat">
+                            <i class="fas fa-vial"></i> Simülasyon
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Confidence Slider -->
+                <div class="confidence-slider-container">
+                    <h4>Tespit Hassasiyeti</h4>
+                    <input type="range" id="confidenceSlider" class="confidence-slider" min="0.1" max="1.0" step="0.05" value="0.5">
+                    <div id="thresholdValue" class="confidence-value">50%</div>
+                </div>
+                
                 <!-- Kamera Bölümü -->
                 <div class="camera-section">
                     <div class="camera-header">
@@ -91,10 +115,14 @@
                                     <p>Gerçek zamanlı tespit için kamerayı başlatın</p>
                                 </div>
                                 <video id="realtimeVideo" autoplay playsinline></video>
-                                <div class="detection-overlay" id="detectionOverlay" style="display:none">
-                                    Sistem yemekleri otomatik olarak tespit ediyor...
-                                </div>
                             </div>
+                            
+                            <!-- Gerçek zamanlı tespit sonuç bölgesi -->
+                            <div class="realtime-detection-result" id="realtimeDetectionResult" style="display:none; margin-top: 15px; border: 1px solid #ddd; border-radius: 8px; padding: 10px; background-color: #f9f9f9;">
+                                <h4>Tespit Sonuçları</h4>
+                                <canvas id="detectionResultCanvas" width="320" height="240" style="width: 100%; border-radius: 4px;"></canvas>
+                            </div>
+                            
                             <div class="camera-controls">
                                 <button id="startRealtimeBtn" class="btn btn-primary">
                                     <i class="fas fa-play"></i> Kamerayı Başlat
@@ -165,7 +193,7 @@
                             <div class="progress-bar">
                                 <div class="progress" id="confidenceBar" style="width: 0%"></div>
                             </div>
-                            <span id="confidenceValue">0%</span>
+                            <span id="detectionConfidenceValue">0%</span>
                         </div>
 
                         <div class="details-grid">
@@ -253,10 +281,14 @@
     <!-- JavaScript Modülleri -->
     <script src="js/modules/utils.js"></script>
     <script src="js/modules/tabs.js"></script>
+    <script src="js/modules/simulation.js"></script> <!-- Yeni merkezi simülasyon modülü -->
+    <script src="js/modules/websocket_manager.js"></script>
+    <script src="js/modules/visualization.js"></script>
     <script src="js/modules/camera.js"></script>
     <script src="js/modules/food_detection.js"></script>
     <script src="js/modules/food_list.js"></script>
     <script src="js/modules/food_details.js"></script>
+    <script src="js/modules/confidence_slider.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>

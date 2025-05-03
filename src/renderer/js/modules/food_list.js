@@ -49,7 +49,17 @@ const FoodListModule = (function() {
         foods.forEach((food, index) => {
             const listItem = document.createElement('li');
             
-            // Yemek öğesi HTML'ini oluştur (resimli)
+            // Confidence değerini yüzde formatına çevir
+            const confidenceValue = typeof food.confidence === 'number' 
+                ? Math.round(food.confidence) 
+                : 0;
+            
+            // Confidence değerine göre renk belirleme
+            const confidenceColorClass = confidenceValue >= 80 
+                ? 'high-confidence' 
+                : (confidenceValue >= 50 ? 'medium-confidence' : 'low-confidence');
+            
+            // Yemek öğesi HTML'ini oluştur (resimli ve confidence değeriyle)
             listItem.innerHTML = `
                 <div class="food-item">
                     <div class="food-item-image">
@@ -57,7 +67,10 @@ const FoodListModule = (function() {
                     </div>
                     <div class="food-item-info">
                         <div class="food-item-name">${food.name}</div>
-                        <div class="food-item-price">${food.price.toFixed(2)} ₺</div>
+                        <div class="food-item-details">
+                            <div class="food-item-price">${food.price.toFixed(2)} ₺</div>
+                            <div class="food-item-confidence ${confidenceColorClass}">${confidenceValue}%</div>
+                        </div>
                     </div>
                 </div>
             `;

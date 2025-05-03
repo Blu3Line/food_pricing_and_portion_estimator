@@ -9,9 +9,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Dosya sistemi işlemleri için
   saveImage: (data) => ipcRenderer.invoke('save-image', data),
   openImage: () => ipcRenderer.invoke('open-image'),
-
-  // YOLO modeli ile entegrasyon için
-  detectFood: (imageData) => ipcRenderer.invoke('detect-food', imageData),
   
   // Uygulama ayarları
   getSettings: () => ipcRenderer.invoke('get-settings'),
