@@ -51,9 +51,15 @@ const FoodDetectionModule = (function() {
         // Yükleme göstergesi
         console.log("Yemek tespit ediliyor...");
         
-        // Eğer giriş parametresi zaten işlenmiş bir sonuç ise direkt döndür
-        if (typeof imageDataOrResult === 'object' && Array.isArray(imageDataOrResult)) {
-            return imageDataOrResult;
+        // Gelen veri zaten işlenmiş bir sonuç mu kontrol et
+        if (typeof imageDataOrResult === 'object' && imageDataOrResult !== null) {
+            if (imageDataOrResult.success && Array.isArray(imageDataOrResult.data)) {
+                console.log("Veri zaten işlenmiş, sonuçları doğrudan döndürüyorum");
+                return processDetectionResults(imageDataOrResult.data);
+            }
+            else if (Array.isArray(imageDataOrResult)) {
+                return imageDataOrResult;
+            }
         }
         
         // 1. WebSocket ile tespit dene (bağlantı varsa)
