@@ -207,11 +207,27 @@ document.addEventListener('DOMContentLoaded', async function() {
                 // Yemek tespiti yap
                 if (foodDetectionModuleReady) {
                     try {
+                        // Doğrudan tanıma fonksiyonunu kullan
                         const detectedFoods = await FoodDetectionModule.detectFoodsFromImage(imageDataOrResult);
                         
                         // Tespit edilen yemekleri göster
                         if (foodListModuleReady) {
+                            // Yemekleri göster
                             FoodListModule.displayFoods(detectedFoods);
+                            
+                            // Backend'den toplam değerleri kullanın
+                            // Not: FoodListModule içinde public olarak updateTotals açık değil
+                            // bu yüzden manuel olarak ekleyeceğiz
+                            const totalPriceEl = document.getElementById('totalPrice');
+                            const totalCaloriesEl = document.getElementById('totalCalories');
+                            
+                            if (totalPriceEl && imageDataOrResult.total_price !== undefined) {
+                                totalPriceEl.textContent = imageDataOrResult.total_price.toFixed(2) + ' ₺';
+                            }
+                            
+                            if (totalCaloriesEl && imageDataOrResult.total_calories !== undefined) {
+                                totalCaloriesEl.textContent = imageDataOrResult.total_calories + ' kcal';
+                            }
                         }
                     } catch (error) {
                         console.error('Yemek tespiti hatası:', error);

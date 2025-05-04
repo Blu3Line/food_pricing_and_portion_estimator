@@ -60,13 +60,19 @@ const FoodListModule = (function() {
                 : (confidenceValue >= 50 ? 'medium-confidence' : 'low-confidence');
             
             // Yemek öğesi HTML'ini oluştur (resimli ve confidence değeriyle)
+            // Porsiyon bilgilerini ekle (TODO: burası 1 porsiyon olunca parantez içinde yazmıyor belki düzeltilebilir burası?)
+            let foodNameDisplay = food.name;
+            if (food.portionBased && food.portion !== 1.0) {
+                foodNameDisplay += ` (${food.portion} porsiyon)`;
+            }
+            
             listItem.innerHTML = `
                 <div class="food-item">
                     <div class="food-item-image">
                         <img src="${getFoodImageUrl(food)}" alt="${food.name}">
                     </div>
                     <div class="food-item-info">
-                        <div class="food-item-name">${food.name}</div>
+                        <div class="food-item-name">${foodNameDisplay}</div>
                         <div class="food-item-details">
                             <div class="food-item-price">${food.price.toFixed(2)} ₺</div>
                             <div class="food-item-confidence ${confidenceColorClass}">${confidenceValue}%</div>
@@ -117,10 +123,37 @@ const FoodListModule = (function() {
 
     /**
      * Toplam fiyat ve kalori bilgilerini günceller
+     * Backend'den gelen toplam değerleri kullanmaya öncelik verir
      * @param {Array} foods - Yemek listesi
      */
     const updateTotals = (foods) => {
-        // Her yemek için tek tek hesapla (quantity dikkate alınmaz)
+        const totalPriceEl = document.getElementById('totalPrice');
+        const totalCaloriesEl = document.getElementById('totalCalories');
+        
+        // Backend'den gelen toplam değerleri almayı dene
+        let backendTotals = { totalPrice: 0, totalCalories: 0 };
+        
+        // FoodDetectionModule varsa, backend'den gelen değerleri al
+        if (typeof FoodDetectionModule !== 'undefined' && typeof FoodDetectionModule.getBackendTotals === 'function') {
+            backendTotals = FoodDetectionModule.getBackendTotals();
+            console.log('Backend toplam değerleri alındı:', backendTotals);
+        }
+        
+        // Backend'den gelen değerler mevcutsa, onları kullan
+        if (backendTotals.totalPrice > 0 || backendTotals.totalCalories > 0) {
+            if (totalPriceEl) {
+                totalPriceEl.textContent = backendTotals.totalPrice.toFixed(2) + ' ₺';
+            }
+            
+            if (totalCaloriesEl) {
+                totalCaloriesEl.textContent = backendTotals.totalCalories + ' kcal';
+            }
+            console.log('Backend toplam değerleri kullanıldı');
+            return;
+        }
+        
+        // Backend değerleri yoksa, frontend'de hesapla (eski yöntem - yedek)
+        console.log('Backend toplam değerleri kullanılamadı, frontend hesaplama yapılıyor');
         const totalPrice = foods.reduce((total, food) => {
             return total + food.price;
         }, 0);
@@ -128,9 +161,6 @@ const FoodListModule = (function() {
         const totalCalories = foods.reduce((total, food) => {
             return total + food.calories;
         }, 0);
-        
-        const totalPriceEl = document.getElementById('totalPrice');
-        const totalCaloriesEl = document.getElementById('totalCalories');
         
         if (totalPriceEl) {
             totalPriceEl.textContent = totalPrice.toFixed(2) + ' ₺';
@@ -161,7 +191,8 @@ const FoodListModule = (function() {
         init,
         displayFoods,
         selectFood,
-        clearFoodList
+        clearFoodList,
+        updateTotals  // Public API'ye updateTotals fonksiyonunu ekledim
     };
 })();
 

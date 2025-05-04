@@ -32,10 +32,14 @@ const FoodDetailsModule = (function() {
             return;
         }
         
-        // Yemek adı
+        // Yemek adı - portionBased ise porsiyon bilgisini de göster (TODO: burası 1 porsiyon olunca parantez içinde yazmıyor belki düzeltilebilir burası?)
         const nameElement = document.getElementById('selectedFoodName');
         if (nameElement) {
-            nameElement.textContent = food.name;
+            let nameText = food.name;
+            if (food.portionBased && food.portion !== 1.0) {
+                nameText += ` (${food.portion} porsiyon)`;
+            }
+            nameElement.textContent = nameText;
         }
         
         // Yemek resmi
@@ -65,9 +69,16 @@ const FoodDetailsModule = (function() {
         // Fiyat ve kalori
         const foodPrice = document.getElementById('foodPrice');
         const foodCalories = document.getElementById('foodCalories');
+        
         if (foodPrice) {
-            foodPrice.textContent = food.price.toFixed(2) + ' ₺';
+            // Porsiyon bazlı ise, birim fiyat bilgisini de göster
+            if (food.portionBased && food.portion !== 1.0 && food.basePrice) {
+                foodPrice.innerHTML = `${food.price.toFixed(2)} ₺<br><small>(${food.basePrice.toFixed(2)} ₺/porsiyon)</small>`;
+            } else {
+                foodPrice.textContent = food.price.toFixed(2) + ' ₺';
+            }
         }
+        
         if (foodCalories) {
             foodCalories.textContent = food.calories + ' kcal';
         }

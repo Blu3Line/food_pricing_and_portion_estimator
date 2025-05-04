@@ -123,7 +123,7 @@ def compute_portion(mass_g, std_mass_g): ...
                     748.0,
                     329.0
                 ]
-                ...
+                ... diğer segment noktaları
             ],
             "food_info": {
                 "name": "Bulgur Pilavı",
