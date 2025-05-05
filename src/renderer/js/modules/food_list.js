@@ -22,10 +22,9 @@ const FoodListModule = (function() {
      * @returns {string} - Resim URL'si
      */
     const getFoodImageUrl = (food) => {
-        // Gerçek bir resim sistemi oluşturulana kadar placeholder resim kullanılır
-        // Gerçek sistemde burada yemeğin adına veya ID'sine göre resim belirlenir
-        const imageUrl = `https://via.placeholder.com/40?text=${food.name[0]}`;
-        return imageUrl;
+        // Use food name or ID to determine the image path
+        const foodName = food.name.toLowerCase().replace(/ /g, '_');
+        return `assets/images/foods/${foodName}_thumb.jpg`;
     };
 
     /**
@@ -63,7 +62,7 @@ const FoodListModule = (function() {
             listItem.innerHTML = `
                 <div class="food-item">
                     <div class="food-item-image">
-                        <img src="${getFoodImageUrl(food)}" alt="${food.name}">
+                        <img src="${getFoodImageUrl(food)}" alt="${food.name}" onerror="this.onerror=null; this.src='assets/images/foods/default_thumb.jpg';">
                     </div>
                     <div class="food-item-info">
                         <div class="food-item-name">${food.name}</div>

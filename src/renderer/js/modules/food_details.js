@@ -16,10 +16,9 @@ const FoodDetailsModule = (function() {
      * @returns {string} - Resim URL'si
      */
     const getFoodImageUrl = (food) => {
-        // Gerçek bir resim sistemi oluşturulana kadar placeholder resim kullanılır
-        // Gerçek sistemde burada yemeğin adına veya ID'sine göre resim belirlenir
-        const imageUrl = `https://via.placeholder.com/300x200?text=${food.name.replace(/ /g, '+')}`;
-        return imageUrl;
+        // Use food name or ID to determine the image path
+        const foodName = food.name.toLowerCase().replace(/ /g, '_');
+        return `assets/images/foods/${foodName}.jpg`;
     };
 
     /**
@@ -41,6 +40,11 @@ const FoodDetailsModule = (function() {
         // Yemek resmi
         const imageElement = document.getElementById('selectedFoodImage');
         if (imageElement) {
+            imageElement.onerror = function() {
+                this.onerror = null; // Prevent infinite loops
+                this.src = 'assets/images/foods/default.jpg';
+            };
+
             imageElement.src = getFoodImageUrl(food);
             imageElement.alt = food.name;
         }
