@@ -27,6 +27,18 @@ const CameraModule = (function() {
      * @returns {boolean} - Başlatma başarılı mı?
      */
     const init = async (onImageAnalysis = null) => {
+        // TabsModule'ün varlığını kontrol et
+        if (typeof TabsModule === 'undefined') {
+            console.error('CameraModule requires TabsModule to be available');
+            return false;
+        }
+        
+        // VisualizationModule'ün varlığını kontrol et
+        if (typeof VisualizationModule === 'undefined') {
+            console.error('CameraModule requires VisualizationModule to be available');
+            return false;
+        }
+
         // Gerekli DOM elementlerini tanımla ve kontrol et
         const requiredElements = [
             { id: 'photoVideo', variable: 'photoVideo', critical: true },
@@ -89,8 +101,12 @@ const CameraModule = (function() {
         // Event dinleyicilerini ekle
         setupEventListeners();
 
-        // Başlangıçta varsayılan sekmeyi aktifleştir
-        switchTab('photo');
+        // Başlangıçta varsayılan sekmeyi aktifleştir - TabsModule kullanarak
+        TabsModule.switchCameraTab('photo', {
+            onTabChange: (tabId) => {
+                currentTab = tabId;
+            }
+        });
 
         // WebSocket entegrasyonunu kontrol et
         websocketEnabled = typeof WebSocketManager !== 'undefined';
@@ -173,19 +189,43 @@ const CameraModule = (function() {
         const backToCamera = document.getElementById('backToCamera');
         const analyzePhotoBtn = document.getElementById('analyzePhotoBtn');
         
-        // Tab butonları için event listeners
+        // Tab butonları için TabsModule kullanarak event listeners
         if (takePhotoTab) {
-            takePhotoTab.addEventListener('click', () => switchTab('photo'));
+            takePhotoTab.addEventListener('click', () => {
+                TabsModule.switchCameraTab('photo', {
+                    onPhotoStreamStop: photoStreaming ? stopPhotoMode : null,
+                    onRealtimeStreamStop: realtimeStreaming ? stopRealtimeMode : null,
+                    onTabChange: (tabId) => {
+                        currentTab = tabId;
+                    }
+                });
+            });
         }
         
         if (uploadImageTab) {
-            uploadImageTab.addEventListener('click', () => switchTab('upload'));
+            uploadImageTab.addEventListener('click', () => {
+                TabsModule.switchCameraTab('upload', {
+                    onPhotoStreamStop: photoStreaming ? stopPhotoMode : null,
+                    onRealtimeStreamStop: realtimeStreaming ? stopRealtimeMode : null,
+                    onTabChange: (tabId) => {
+                        currentTab = tabId;
+                    }
+                });
+            });
         }
         
         if (realTimeTab) {
-            realTimeTab.addEventListener('click', () => switchTab('realtime'));
+            realTimeTab.addEventListener('click', () => {
+                TabsModule.switchCameraTab('realtime', {
+                    onPhotoStreamStop: photoStreaming ? stopPhotoMode : null,
+                    onRealtimeStreamStop: realtimeStreaming ? stopRealtimeMode : null, 
+                    onTabChange: (tabId) => {
+                        currentTab = tabId;
+                    }
+                });
+            });
         }
-        
+
         // Fotoğraf çekme modu butonları için event listeners
         if (startPhotoCamera) {
             startPhotoCamera.addEventListener('click', startPhotoMode);
@@ -277,8 +317,8 @@ const CameraModule = (function() {
         // Sonuç bölümü butonları için event listeners
         if (backToCamera) {
             backToCamera.addEventListener('click', () => {
-                showTab(currentTab);
-                hideResultSection();
+                TabsModule.showCameraTab(currentTab);
+                TabsModule.hideCameraResult();
             });
         }
         
@@ -297,101 +337,10 @@ const CameraModule = (function() {
         }
     };
 
-    /**
-     * Tab değiştirme işlevi
-     * @param {string} tabId - Tab ID ('photo', 'upload', 'realtime')
-     */
-    const switchTab = (tabId) => {
-        // Önceki işlevleri temizle
-        if (photoStreaming) stopPhotoMode();
-        if (realtimeStreaming) stopRealtimeMode();
-        
-        // Tüm tabları ve içeriklerini gizle
-        const tabs = document.querySelectorAll('.camera-tab');
-        tabs.forEach(tab => tab.classList.remove('active'));
-        
-        const tabContents = document.querySelectorAll('.camera-tab-content');
-        tabContents.forEach(content => content.style.display = 'none');
-        
-        // Sonuç bölümünü gizle
-        hideResultSection();
-        
-        // Doğru ID'yi belirle
-        let tabElementId;
-        switch(tabId) {
-            case 'photo':
-                tabElementId = 'takePhotoTab';
-                break;
-            case 'upload':
-                tabElementId = 'uploadImageTab';
-                break;
-            case 'realtime':
-                tabElementId = 'realTimeTab';
-                break;
-            default:
-                tabElementId = 'takePhotoTab';
-        }
-        
-        // Seçilen tabı ve içeriğini göster
-        const selectedTab = document.getElementById(tabElementId);
-        const selectedContent = document.getElementById(`${tabId}TabContent`);
-        
-        if (selectedTab) selectedTab.classList.add('active');
-        if (selectedContent) selectedContent.style.display = 'block';
-        
-        // Geçerli tabı güncelle
-        currentTab = tabId;
-    };
+
+    // Tab fonksiyonları artık TabsModule içinde tanımlandı (BU YORUM SATIRI SİLİNMESİN KALSIN)
     
-    /**
-     * Sonuç bölümünü gösterir
-     */
-    const showResultSection = () => {
-        // Tüm tab içerikleri gizle
-        const tabContents = document.querySelectorAll('.camera-tab-content');
-        tabContents.forEach(content => content.style.display = 'none');
-        
-        // Sonuç bölümünü göster
-        const resultSection = document.getElementById('resultSection');
-        if (resultSection) resultSection.style.display = 'block';
-    };
-    
-    /**
-     * Sonuç bölümünü gizler
-     */
-    const hideResultSection = () => {
-        const resultSection = document.getElementById('resultSection');
-        if (resultSection) resultSection.style.display = 'none';
-    };
-    
-    /**
-     * Belirli bir tabı gösterir
-     * @param {string} tabId - Tab ID ('photo', 'upload', 'realtime')
-     */
-    const showTab = (tabId) => {
-        const tabContent = document.getElementById(`${tabId}TabContent`);
-        if (tabContent) tabContent.style.display = 'block';
-        
-        // Doğru ID'yi belirle
-        let tabElementId;
-        switch(tabId) {
-            case 'photo':
-                tabElementId = 'takePhotoTab';
-                break;
-            case 'upload':
-                tabElementId = 'uploadImageTab';
-                break;
-            case 'realtime':
-                tabElementId = 'realTimeTab';
-                break;
-            default:
-                tabElementId = 'takePhotoTab';
-        }
-        
-        const tabButton = document.getElementById(tabElementId);
-        if (tabButton) tabButton.classList.add('active');
-    };
-    
+
     /**
      * Fotoğraf modunu başlatır
      */
@@ -489,7 +438,7 @@ const CameraModule = (function() {
             }
             
             // Sonuç bölümünü göster
-            showResultSection();
+            TabsModule.showCameraResult();
         }
     };
     
@@ -604,7 +553,7 @@ const CameraModule = (function() {
         console.log(`Yüklenen dosya: ${fileName}`);
         
         // Sonuç bölümünü göster
-        showResultSection();
+        TabsModule.showCameraResult();
     };
     
     /**
@@ -639,7 +588,7 @@ const CameraModule = (function() {
             resultImage.src = e.target.result;
             
             // Sonuç bölümünü göster
-            showResultSection();
+            TabsModule.showCameraResult();
         };
         
         reader.readAsDataURL(file);
@@ -670,13 +619,7 @@ const CameraModule = (function() {
                 
                 if (response.success) {
                     // Görüntünün üzerine tespitleri çiz - VisualizationModule kullan
-                    if (typeof VisualizationModule !== 'undefined') {
-                        // Orijinal görüntü üzerine tespitleri çiz
-                        await VisualizationModule.displayDetectionsOnImage(resultImage, response.data);
-                    } else {
-                        // Eski görselleştirme yöntemi için
-                        visualizeResults(resultImage, response.data);
-                    }
+                    await VisualizationModule.displayDetectionsOnImage(resultImage, response.data);
                     
                     // Sonuçları callback'e aktar
                     if (imageAnalysisCallback) {
@@ -729,13 +672,7 @@ const CameraModule = (function() {
             
             if (response.success) {
                 // Görüntünün üzerine tespitleri çiz - VisualizationModule kullan
-                if (typeof VisualizationModule !== 'undefined') {
-                    // Orijinal görüntü üzerine tespitleri çiz
-                    await VisualizationModule.displayDetectionsOnImage(resultImage, response.data);
-                } else {
-                    // Eski görselleştirme yöntemi için
-                    visualizeResults(resultImage, response.data);
-                }
+                await VisualizationModule.displayDetectionsOnImage(resultImage, response.data);
             }
             
             // Tespit sonuçlarını işle
@@ -822,14 +759,8 @@ const CameraModule = (function() {
                                 ctx.clearRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
                                 ctx.drawImage(realtimeVideo, 0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
                                 
-                                // VisualizationModule ile çizim yapma
-                                if (typeof VisualizationModule !== 'undefined') {
-                                    // Tespitleri çiz (sonuç canvas'ı üzerine)
-                                    VisualizationModule.renderDetections(detectionResultCanvas, response.data);
-                                } else {
-                                    // Eski yöntem
-                                    drawDetections(detectionResultCanvas, response.data);
-                                }
+                                // VisualizationModule ile tespitleri çiz
+                                VisualizationModule.renderDetections(detectionResultCanvas, response.data);
                                 
                                 // Callback'i çağır
                                 if (imageAnalysisCallback) {
@@ -840,14 +771,9 @@ const CameraModule = (function() {
                                 const ctx = detectionResultCanvas.getContext('2d');
                                 ctx.clearRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
                                 ctx.drawImage(realtimeVideo, 0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
-                                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-                                ctx.fillRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
                                 
-                                // "Tespit bulunamadı" mesajı
-                                ctx.font = '16px Arial';
-                                ctx.fillStyle = 'white';
-                                ctx.textAlign = 'center';
-                                ctx.fillText('Tespit bulunamadı', detectionResultCanvas.width / 2, detectionResultCanvas.height / 2);
+                                // Tespit bulunamadı mesajı göster
+                                VisualizationModule.displayMessage(detectionResultCanvas, 'Tespit bulunamadı');
                             }
                         }
                     },
@@ -931,14 +857,8 @@ const CameraModule = (function() {
                             ctx.clearRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
                             ctx.drawImage(realtimeVideo, 0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
                             
-                            // VisualizationModule ile çizim yapma
-                            if (typeof VisualizationModule !== 'undefined') {
-                                // Tespitleri çiz (sonuç canvas'ı üzerine)
-                                VisualizationModule.renderDetections(detectionResultCanvas, response.data);
-                            } else {
-                                // Eski yöntem
-                                drawDetections(detectionResultCanvas, response.data);
-                            }
+                            // VisualizationModule ile tespitleri çiz
+                            VisualizationModule.renderDetections(detectionResultCanvas, response.data);
                             
                             // Callback'i çağır
                             if (imageAnalysisCallback) {
@@ -949,14 +869,9 @@ const CameraModule = (function() {
                             const ctx = detectionResultCanvas.getContext('2d');
                             ctx.clearRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
                             ctx.drawImage(realtimeVideo, 0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
-                            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-                            ctx.fillRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
                             
-                            // "Tespit bulunamadı" mesajı
-                            ctx.font = '16px Arial';
-                            ctx.fillStyle = 'white';
-                            ctx.textAlign = 'center';
-                            ctx.fillText('Tespit bulunamadı', detectionResultCanvas.width / 2, detectionResultCanvas.height / 2);
+                            // "Tespit bulunamadı" mesajı göster
+                            VisualizationModule.displayMessage(detectionResultCanvas, 'Tespit bulunamadı');
                         }
                     }
                     
@@ -988,19 +903,10 @@ const CameraModule = (function() {
                         
                         // Tespitleri çiz
                         if (response.data && response.data.length > 0) {
-                            if (typeof VisualizationModule !== 'undefined') {
-                                VisualizationModule.renderDetections(detectionResultCanvas, response.data);
-                            } else {
-                                drawDetections(detectionResultCanvas, response.data);
-                            }
+                            VisualizationModule.renderDetections(detectionResultCanvas, response.data);
                         } else {
                             // Tespit yoksa mesaj göster
-                            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-                            ctx.fillRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
-                            ctx.font = '16px Arial';
-                            ctx.fillStyle = 'white';
-                            ctx.textAlign = 'center';
-                            ctx.fillText('Tespit bulunamadı (Simülasyon)', detectionResultCanvas.width / 2, detectionResultCanvas.height / 2);
+                            VisualizationModule.displayMessage(detectionResultCanvas, 'Tespit bulunamadı (Simülasyon)');
                         }
                     }
                     
@@ -1020,124 +926,14 @@ const CameraModule = (function() {
         }
     };
     
-    /**
-     * Tespitleri overlay üzerine çizer
-     * @param {HTMLCanvasElement} canvas - Çizim yapılacak canvas
-     * @param {Array} detections - Tespit sonuçları
-     */
-    const drawDetections = (canvas, detections) => {
-        if (!canvas || !detections || !detections.length) return;
-        
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Her bir tespit için
-        for (const detection of detections) {
-            const { class: className, confidence, bbox, segments } = detection;
-            
-            // Sınıf için renk belirle
-            const color = getColorForClass(className);
-            
-            // Bounding box çiz
-            if (bbox && bbox.length === 4) {
-                const [x1, y1, x2, y2] = bbox;
-                
-                ctx.strokeStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
-                ctx.lineWidth = 2;
-                ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
-                
-                // Sınıf etiketi çiz
-                ctx.font = '14px Arial';
-                ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
-                const label = `${className}: ${Math.round(confidence * 100)}%`;
-                ctx.fillText(label, x1, y1 > 20 ? y1 - 5 : y1 + 20);
-            }
-            
-            // Segmentasyon poligonu çiz
-            if (segments && segments.length > 2) {
-                ctx.beginPath();
-                ctx.moveTo(segments[0][0], segments[0][1]);
-                
-                for (let i = 1; i < segments.length; i++) {
-                    ctx.lineTo(segments[i][0], segments[i][1]);
-                }
-                
-                ctx.closePath();
-                ctx.strokeStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                
-                // Yarı saydam dolgu
-                ctx.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0.3)`;
-                ctx.fill();
-            }
-        }
-    };
-    
-    /**
-     * Deteksiyon overlay'i temizler
-     * @param {HTMLCanvasElement} canvas - Temizlenecek canvas
-     */
-    const clearDetectionOverlay = (canvas) => {
-        if (!canvas) return;
-        
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-    };
-    
-    /**
-     * Tespit sonuçlarını görselleştirir
-     * @param {HTMLImageElement} img - Sonuçların çizileceği resim elementi
-     * @param {Array} detections - Tespit sonuçları
-     */
-    const visualizeResults = (img, detections) => {
-        if (!img || !detections || !detections.length) return;
-        
-        // Canvas oluştur ve resmi kopyala
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth || img.width;
-        canvas.height = img.naturalHeight || img.height;
-        
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        
-        // Tespitleri çiz
-        drawDetections(canvas, detections);
-        
-        // Resmi güncelle
-        img.src = canvas.toDataURL('image/png');
-    };
-    
-    /**
-     * Sınıf adına göre renk oluşturur
-     * @param {string} className - Sınıf adı
-     * @returns {Array} - RGB renk değerleri
-     */
-    const getColorForClass = (className) => {
-        // Basit hash fonksiyonu
-        let hash = 0;
-        for (let i = 0; i < className.length; i++) {
-            hash = className.charCodeAt(i) + ((hash << 5) - hash);
-        }
-        
-        // RGB değerleri oluştur (0-255 arası)
-        const r = (hash & 0xFF);
-        const g = ((hash >> 8) & 0xFF);
-        const b = ((hash >> 16) & 0xFF);
-        
-        return [r, g, b];
-    };
-
     // Public API
     return {
         init,
-        switchTab,
         capturePhoto,
         handleFiles,
         analyzePhoto,
         saveImage,
-        selectCamera,
-        visualizeResults
+        selectCamera
     };
 })();
 
