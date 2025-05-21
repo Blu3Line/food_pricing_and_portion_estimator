@@ -1,3 +1,9 @@
+#YOLO model
+*.pt
+
+#python cache
+__pycache__/
+
 # Logs
 logs
 *.log

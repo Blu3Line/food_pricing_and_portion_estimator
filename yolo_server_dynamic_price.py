@@ -329,6 +329,22 @@ async def process_image(model, image, confidence_threshold=0.5, filter_classes=N
         
         processing_time = time.time() - start_time
         
+        
+        #AŞAĞIDAKİ KODU SİLME SONRA LAZIM OLABİLİR
+        # #response mesajı hepsini bir json dosyasına atalım 
+        # response_data = {
+        #     'success': True,
+        #     'data': detections,
+        #     'total_price': round(total_price, 2),
+        #     'total_calories': total_calories,
+        #     'processing_time': processing_time
+        # }
+        # # JSON dosyasına yaz
+        # output_path = os.path.join(current_dir, 'output.json')
+        # with open(output_path, 'w', encoding='utf-8') as f:
+        #     json.dump(response_data, f, ensure_ascii=False, indent=4)
+        
+        
         return {
             'success': True,
             'data': detections,
