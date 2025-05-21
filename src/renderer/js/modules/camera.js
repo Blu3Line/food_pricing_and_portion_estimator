@@ -27,6 +27,12 @@ const CameraModule = (function() {
      * @returns {boolean} - Başlatma başarılı mı?
      */
     const init = async (onImageAnalysis = null) => {
+        // TabsModule'ün varlığını kontrol et
+        if (typeof TabsModule === 'undefined') {
+            console.error('CameraModule requires TabsModule to be available');
+            return false;
+        }
+        
         // VisualizationModule'ün varlığını kontrol et
         if (typeof VisualizationModule === 'undefined') {
             console.error('CameraModule requires VisualizationModule to be available');
@@ -95,8 +101,12 @@ const CameraModule = (function() {
         // Event dinleyicilerini ekle
         setupEventListeners();
 
-        // Başlangıçta varsayılan sekmeyi aktifleştir
-        switchTab('photo');
+        // Başlangıçta varsayılan sekmeyi aktifleştir - TabsModule kullanarak
+        TabsModule.switchCameraTab('photo', {
+            onTabChange: (tabId) => {
+                currentTab = tabId;
+            }
+        });
 
         // WebSocket entegrasyonunu kontrol et
         websocketEnabled = typeof WebSocketManager !== 'undefined';
@@ -179,19 +189,43 @@ const CameraModule = (function() {
         const backToCamera = document.getElementById('backToCamera');
         const analyzePhotoBtn = document.getElementById('analyzePhotoBtn');
         
-        // Tab butonları için event listeners
+        // Tab butonları için TabsModule kullanarak event listeners
         if (takePhotoTab) {
-            takePhotoTab.addEventListener('click', () => switchTab('photo'));
+            takePhotoTab.addEventListener('click', () => {
+                TabsModule.switchCameraTab('photo', {
+                    onPhotoStreamStop: photoStreaming ? stopPhotoMode : null,
+                    onRealtimeStreamStop: realtimeStreaming ? stopRealtimeMode : null,
+                    onTabChange: (tabId) => {
+                        currentTab = tabId;
+                    }
+                });
+            });
         }
         
         if (uploadImageTab) {
-            uploadImageTab.addEventListener('click', () => switchTab('upload'));
+            uploadImageTab.addEventListener('click', () => {
+                TabsModule.switchCameraTab('upload', {
+                    onPhotoStreamStop: photoStreaming ? stopPhotoMode : null,
+                    onRealtimeStreamStop: realtimeStreaming ? stopRealtimeMode : null,
+                    onTabChange: (tabId) => {
+                        currentTab = tabId;
+                    }
+                });
+            });
         }
         
         if (realTimeTab) {
-            realTimeTab.addEventListener('click', () => switchTab('realtime'));
+            realTimeTab.addEventListener('click', () => {
+                TabsModule.switchCameraTab('realtime', {
+                    onPhotoStreamStop: photoStreaming ? stopPhotoMode : null,
+                    onRealtimeStreamStop: realtimeStreaming ? stopRealtimeMode : null, 
+                    onTabChange: (tabId) => {
+                        currentTab = tabId;
+                    }
+                });
+            });
         }
-        
+
         // Fotoğraf çekme modu butonları için event listeners
         if (startPhotoCamera) {
             startPhotoCamera.addEventListener('click', startPhotoMode);
@@ -283,8 +317,8 @@ const CameraModule = (function() {
         // Sonuç bölümü butonları için event listeners
         if (backToCamera) {
             backToCamera.addEventListener('click', () => {
-                showTab(currentTab);
-                hideResultSection();
+                TabsModule.showCameraTab(currentTab);
+                TabsModule.hideCameraResult();
             });
         }
         
@@ -303,101 +337,10 @@ const CameraModule = (function() {
         }
     };
 
-    /**
-     * Tab değiştirme işlevi
-     * @param {string} tabId - Tab ID ('photo', 'upload', 'realtime')
-     */
-    const switchTab = (tabId) => {
-        // Önceki işlevleri temizle
-        if (photoStreaming) stopPhotoMode();
-        if (realtimeStreaming) stopRealtimeMode();
-        
-        // Tüm tabları ve içeriklerini gizle
-        const tabs = document.querySelectorAll('.camera-tab');
-        tabs.forEach(tab => tab.classList.remove('active'));
-        
-        const tabContents = document.querySelectorAll('.camera-tab-content');
-        tabContents.forEach(content => content.style.display = 'none');
-        
-        // Sonuç bölümünü gizle
-        hideResultSection();
-        
-        // Doğru ID'yi belirle
-        let tabElementId;
-        switch(tabId) {
-            case 'photo':
-                tabElementId = 'takePhotoTab';
-                break;
-            case 'upload':
-                tabElementId = 'uploadImageTab';
-                break;
-            case 'realtime':
-                tabElementId = 'realTimeTab';
-                break;
-            default:
-                tabElementId = 'takePhotoTab';
-        }
-        
-        // Seçilen tabı ve içeriğini göster
-        const selectedTab = document.getElementById(tabElementId);
-        const selectedContent = document.getElementById(`${tabId}TabContent`);
-        
-        if (selectedTab) selectedTab.classList.add('active');
-        if (selectedContent) selectedContent.style.display = 'block';
-        
-        // Geçerli tabı güncelle
-        currentTab = tabId;
-    };
+
+    // Tab fonksiyonları artık TabsModule içinde tanımlandı (BU YORUM SATIRI SİLİNMESİN KALSIN)
     
-    /**
-     * Sonuç bölümünü gösterir
-     */
-    const showResultSection = () => {
-        // Tüm tab içerikleri gizle
-        const tabContents = document.querySelectorAll('.camera-tab-content');
-        tabContents.forEach(content => content.style.display = 'none');
-        
-        // Sonuç bölümünü göster
-        const resultSection = document.getElementById('resultSection');
-        if (resultSection) resultSection.style.display = 'block';
-    };
-    
-    /**
-     * Sonuç bölümünü gizler
-     */
-    const hideResultSection = () => {
-        const resultSection = document.getElementById('resultSection');
-        if (resultSection) resultSection.style.display = 'none';
-    };
-    
-    /**
-     * Belirli bir tabı gösterir
-     * @param {string} tabId - Tab ID ('photo', 'upload', 'realtime')
-     */
-    const showTab = (tabId) => {
-        const tabContent = document.getElementById(`${tabId}TabContent`);
-        if (tabContent) tabContent.style.display = 'block';
-        
-        // Doğru ID'yi belirle
-        let tabElementId;
-        switch(tabId) {
-            case 'photo':
-                tabElementId = 'takePhotoTab';
-                break;
-            case 'upload':
-                tabElementId = 'uploadImageTab';
-                break;
-            case 'realtime':
-                tabElementId = 'realTimeTab';
-                break;
-            default:
-                tabElementId = 'takePhotoTab';
-        }
-        
-        const tabButton = document.getElementById(tabElementId);
-        if (tabButton) tabButton.classList.add('active');
-    };
-    
+
     /**
      * Fotoğraf modunu başlatır
      */
@@ -495,7 +438,7 @@ const CameraModule = (function() {
             }
             
             // Sonuç bölümünü göster
-            showResultSection();
+            TabsModule.showCameraResult();
         }
     };
     
@@ -610,7 +553,7 @@ const CameraModule = (function() {
         console.log(`Yüklenen dosya: ${fileName}`);
         
         // Sonuç bölümünü göster
-        showResultSection();
+        TabsModule.showCameraResult();
     };
     
     /**
@@ -645,7 +588,7 @@ const CameraModule = (function() {
             resultImage.src = e.target.result;
             
             // Sonuç bölümünü göster
-            showResultSection();
+            TabsModule.showCameraResult();
         };
         
         reader.readAsDataURL(file);
@@ -986,7 +929,6 @@ const CameraModule = (function() {
     // Public API
     return {
         init,
-        switchTab,
         capturePhoto,
         handleFiles,
         analyzePhoto,
