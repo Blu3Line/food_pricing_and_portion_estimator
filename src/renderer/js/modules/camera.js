@@ -27,6 +27,12 @@ const CameraModule = (function() {
      * @returns {boolean} - Başlatma başarılı mı?
      */
     const init = async (onImageAnalysis = null) => {
+        // VisualizationModule'ün varlığını kontrol et
+        if (typeof VisualizationModule === 'undefined') {
+            console.error('CameraModule requires VisualizationModule to be available');
+            return false;
+        }
+
         // Gerekli DOM elementlerini tanımla ve kontrol et
         const requiredElements = [
             { id: 'photoVideo', variable: 'photoVideo', critical: true },
@@ -670,13 +676,7 @@ const CameraModule = (function() {
                 
                 if (response.success) {
                     // Görüntünün üzerine tespitleri çiz - VisualizationModule kullan
-                    if (typeof VisualizationModule !== 'undefined') {
-                        // Orijinal görüntü üzerine tespitleri çiz
-                        await VisualizationModule.displayDetectionsOnImage(resultImage, response.data);
-                    } else {
-                        // Eski görselleştirme yöntemi için
-                        visualizeResults(resultImage, response.data);
-                    }
+                    await VisualizationModule.displayDetectionsOnImage(resultImage, response.data);
                     
                     // Sonuçları callback'e aktar
                     if (imageAnalysisCallback) {
@@ -729,13 +729,7 @@ const CameraModule = (function() {
             
             if (response.success) {
                 // Görüntünün üzerine tespitleri çiz - VisualizationModule kullan
-                if (typeof VisualizationModule !== 'undefined') {
-                    // Orijinal görüntü üzerine tespitleri çiz
-                    await VisualizationModule.displayDetectionsOnImage(resultImage, response.data);
-                } else {
-                    // Eski görselleştirme yöntemi için
-                    visualizeResults(resultImage, response.data);
-                }
+                await VisualizationModule.displayDetectionsOnImage(resultImage, response.data);
             }
             
             // Tespit sonuçlarını işle
@@ -822,14 +816,8 @@ const CameraModule = (function() {
                                 ctx.clearRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
                                 ctx.drawImage(realtimeVideo, 0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
                                 
-                                // VisualizationModule ile çizim yapma
-                                if (typeof VisualizationModule !== 'undefined') {
-                                    // Tespitleri çiz (sonuç canvas'ı üzerine)
-                                    VisualizationModule.renderDetections(detectionResultCanvas, response.data);
-                                } else {
-                                    // Eski yöntem
-                                    drawDetections(detectionResultCanvas, response.data);
-                                }
+                                // VisualizationModule ile tespitleri çiz
+                                VisualizationModule.renderDetections(detectionResultCanvas, response.data);
                                 
                                 // Callback'i çağır
                                 if (imageAnalysisCallback) {
@@ -840,14 +828,9 @@ const CameraModule = (function() {
                                 const ctx = detectionResultCanvas.getContext('2d');
                                 ctx.clearRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
                                 ctx.drawImage(realtimeVideo, 0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
-                                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-                                ctx.fillRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
                                 
-                                // "Tespit bulunamadı" mesajı
-                                ctx.font = '16px Arial';
-                                ctx.fillStyle = 'white';
-                                ctx.textAlign = 'center';
-                                ctx.fillText('Tespit bulunamadı', detectionResultCanvas.width / 2, detectionResultCanvas.height / 2);
+                                // Tespit bulunamadı mesajı göster
+                                VisualizationModule.displayMessage(detectionResultCanvas, 'Tespit bulunamadı');
                             }
                         }
                     },
@@ -931,14 +914,8 @@ const CameraModule = (function() {
                             ctx.clearRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
                             ctx.drawImage(realtimeVideo, 0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
                             
-                            // VisualizationModule ile çizim yapma
-                            if (typeof VisualizationModule !== 'undefined') {
-                                // Tespitleri çiz (sonuç canvas'ı üzerine)
-                                VisualizationModule.renderDetections(detectionResultCanvas, response.data);
-                            } else {
-                                // Eski yöntem
-                                drawDetections(detectionResultCanvas, response.data);
-                            }
+                            // VisualizationModule ile tespitleri çiz
+                            VisualizationModule.renderDetections(detectionResultCanvas, response.data);
                             
                             // Callback'i çağır
                             if (imageAnalysisCallback) {
@@ -949,14 +926,9 @@ const CameraModule = (function() {
                             const ctx = detectionResultCanvas.getContext('2d');
                             ctx.clearRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
                             ctx.drawImage(realtimeVideo, 0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
-                            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-                            ctx.fillRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
                             
-                            // "Tespit bulunamadı" mesajı
-                            ctx.font = '16px Arial';
-                            ctx.fillStyle = 'white';
-                            ctx.textAlign = 'center';
-                            ctx.fillText('Tespit bulunamadı', detectionResultCanvas.width / 2, detectionResultCanvas.height / 2);
+                            // "Tespit bulunamadı" mesajı göster
+                            VisualizationModule.displayMessage(detectionResultCanvas, 'Tespit bulunamadı');
                         }
                     }
                     
@@ -988,19 +960,10 @@ const CameraModule = (function() {
                         
                         // Tespitleri çiz
                         if (response.data && response.data.length > 0) {
-                            if (typeof VisualizationModule !== 'undefined') {
-                                VisualizationModule.renderDetections(detectionResultCanvas, response.data);
-                            } else {
-                                drawDetections(detectionResultCanvas, response.data);
-                            }
+                            VisualizationModule.renderDetections(detectionResultCanvas, response.data);
                         } else {
                             // Tespit yoksa mesaj göster
-                            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-                            ctx.fillRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
-                            ctx.font = '16px Arial';
-                            ctx.fillStyle = 'white';
-                            ctx.textAlign = 'center';
-                            ctx.fillText('Tespit bulunamadı (Simülasyon)', detectionResultCanvas.width / 2, detectionResultCanvas.height / 2);
+                            VisualizationModule.displayMessage(detectionResultCanvas, 'Tespit bulunamadı (Simülasyon)');
                         }
                     }
                     
@@ -1020,114 +983,6 @@ const CameraModule = (function() {
         }
     };
     
-    /**
-     * Tespitleri overlay üzerine çizer
-     * @param {HTMLCanvasElement} canvas - Çizim yapılacak canvas
-     * @param {Array} detections - Tespit sonuçları
-     */
-    const drawDetections = (canvas, detections) => {
-        if (!canvas || !detections || !detections.length) return;
-        
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Her bir tespit için
-        for (const detection of detections) {
-            const { class: className, confidence, bbox, segments } = detection;
-            
-            // Sınıf için renk belirle
-            const color = getColorForClass(className);
-            
-            // Bounding box çiz
-            if (bbox && bbox.length === 4) {
-                const [x1, y1, x2, y2] = bbox;
-                
-                ctx.strokeStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
-                ctx.lineWidth = 2;
-                ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
-                
-                // Sınıf etiketi çiz
-                ctx.font = '14px Arial';
-                ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
-                const label = `${className}: ${Math.round(confidence * 100)}%`;
-                ctx.fillText(label, x1, y1 > 20 ? y1 - 5 : y1 + 20);
-            }
-            
-            // Segmentasyon poligonu çiz
-            if (segments && segments.length > 2) {
-                ctx.beginPath();
-                ctx.moveTo(segments[0][0], segments[0][1]);
-                
-                for (let i = 1; i < segments.length; i++) {
-                    ctx.lineTo(segments[i][0], segments[i][1]);
-                }
-                
-                ctx.closePath();
-                ctx.strokeStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                
-                // Yarı saydam dolgu
-                ctx.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0.3)`;
-                ctx.fill();
-            }
-        }
-    };
-    
-    /**
-     * Deteksiyon overlay'i temizler
-     * @param {HTMLCanvasElement} canvas - Temizlenecek canvas
-     */
-    const clearDetectionOverlay = (canvas) => {
-        if (!canvas) return;
-        
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-    };
-    
-    /**
-     * Tespit sonuçlarını görselleştirir
-     * @param {HTMLImageElement} img - Sonuçların çizileceği resim elementi
-     * @param {Array} detections - Tespit sonuçları
-     */
-    const visualizeResults = (img, detections) => {
-        if (!img || !detections || !detections.length) return;
-        
-        // Canvas oluştur ve resmi kopyala
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth || img.width;
-        canvas.height = img.naturalHeight || img.height;
-        
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        
-        // Tespitleri çiz
-        drawDetections(canvas, detections);
-        
-        // Resmi güncelle
-        img.src = canvas.toDataURL('image/png');
-    };
-    
-    /**
-     * Sınıf adına göre renk oluşturur
-     * @param {string} className - Sınıf adı
-     * @returns {Array} - RGB renk değerleri
-     */
-    const getColorForClass = (className) => {
-        // Basit hash fonksiyonu
-        let hash = 0;
-        for (let i = 0; i < className.length; i++) {
-            hash = className.charCodeAt(i) + ((hash << 5) - hash);
-        }
-        
-        // RGB değerleri oluştur (0-255 arası)
-        const r = (hash & 0xFF);
-        const g = ((hash >> 8) & 0xFF);
-        const b = ((hash >> 16) & 0xFF);
-        
-        return [r, g, b];
-    };
-
     // Public API
     return {
         init,
@@ -1136,8 +991,7 @@ const CameraModule = (function() {
         handleFiles,
         analyzePhoto,
         saveImage,
-        selectCamera,
-        visualizeResults
+        selectCamera
     };
 })();
 
