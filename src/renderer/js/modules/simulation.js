@@ -10,6 +10,7 @@ const SimulationModule = (function() {
             name: 'Ezogelin Çorbası',
             price: 15.00,
             calories: 120,
+            portion_based: true,
             nutrition: {
                 protein: "3g",
                 carbs: "15g",
@@ -35,6 +36,7 @@ const SimulationModule = (function() {
             name: 'Izgara Tavuk',
             price: 45.00,
             calories: 250,
+            portion_based: true,
             nutrition: {
                 protein: "30g",
                 carbs: "0g",
@@ -56,6 +58,7 @@ const SimulationModule = (function() {
             name: 'Pirinç Pilavı',
             price: 20.00,
             calories: 180,
+            portion_based: true,
             nutrition: {
                 protein: "3g",
                 carbs: "35g",
@@ -77,6 +80,7 @@ const SimulationModule = (function() {
             name: 'Mevsim Salatası',
             price: 25.00,
             calories: 80,
+            portion_based: true,
             nutrition: {
                 protein: "2g",
                 carbs: "10g",
@@ -97,6 +101,7 @@ const SimulationModule = (function() {
             name: 'Napoliten Makarna',
             price: 30.00,
             calories: 320,
+            portion_based: true,
             nutrition: {
                 protein: "10g",
                 carbs: "50g",
@@ -119,6 +124,7 @@ const SimulationModule = (function() {
             name: 'Kuru Fasulye',
             price: 30.00,
             calories: 220,
+            portion_based: true,
             nutrition: {
                 protein: "15g",
                 carbs: "30g",
@@ -140,6 +146,7 @@ const SimulationModule = (function() {
             name: 'Bulgur Pilavı',
             price: 18.00,
             calories: 170,
+            portion_based: true,
             nutrition: {
                 protein: "4g",
                 carbs: "32g",
@@ -161,6 +168,7 @@ const SimulationModule = (function() {
             name: 'Çatal',
             price: 0.50,
             calories: 0,
+            portion_based: false,
             nutrition: {
                 protein: "0g",
                 carbs: "0g",
@@ -174,6 +182,7 @@ const SimulationModule = (function() {
             name: 'Kaşık',
             price: 0.50,
             calories: 0,
+            portion_based: false,
             nutrition: {
                 protein: "0g",
                 carbs: "0g",
@@ -226,19 +235,7 @@ const SimulationModule = (function() {
                     // Rastgele bir yemek türü seç
                     const randomIndex = Math.floor(Math.random() * foodKeys.length);
                     const foodKey = foodKeys[randomIndex];
-                    const foodData = foodDatabase[foodKey];
-                    
-                    // Eğer bir food_info property'si içermiyorsa, WebSocket yanıt formatına uygun olarak ekle
-                    if (!foodData.food_info) {
-                        foodData.food_info = {
-                            name: foodData.name,
-                            price: foodData.price,
-                            calories: foodData.calories,
-                            nutrition: foodData.nutrition,
-                            ingredients: foodData.ingredients,
-                            allergens: foodData.allergens
-                        };
-                    }
+                    const foodData = { ...foodDatabase[foodKey] }; // Kopyasını al, orijinali değiştirme
                     
                     // Rastgele güven skoru (%70-97 arası)
                     const confidence = (Math.floor(Math.random() * 28) + 70) / 100;
@@ -265,20 +262,82 @@ const SimulationModule = (function() {
                         [x1, y1]
                     ];
                     
+                    // Dinamik porsiyon hesaplaması
+                    let foodInfo = {};
+                    if (foodData.portion_based) {
+                        // Rastgele porsiyon - 0.5, 1.0, 1.5, 2.0, 2.5, 3.0 arasından
+                        const portionValues = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0];
+                        const portion = portionValues[Math.floor(Math.random() * portionValues.length)];
+                        
+                        // Temel fiyat
+                        const basePrice = foodData.price;
+                        
+                        // Porsiyon fiyatı
+                        const portionPrice = basePrice * portion;
+                        
+                        // Kalori de porsiyon bazlı değişir
+                        const portionCalories = Math.round(foodData.calories * portion);
+                        
+                        // Besin değerlerini porsiyona göre ölçeklendir
+                        const scaledNutrition = {};
+                        for (const [key, value] of Object.entries(foodData.nutrition)) {
+                            // "10g" formatındaki değeri sayı ve birim olarak parçala
+                            const match = value.match(/^([\d.]+)(.*)$/);
+                            if (match) {
+                                const numValue = parseFloat(match[1]);
+                                const unit = match[2];
+                                // Sayısal değeri porsiyon ile çarp ve formatla
+                                scaledNutrition[key] = (numValue * portion).toFixed(1) + unit;
+                            } else {
+                                scaledNutrition[key] = value; // Parçalanamıyorsa orijinali kullan
+                            }
+                        }
+                        
+                        // Food info objesini oluştur
+                        foodInfo = {
+                            name: foodData.name,
+                            portion_based: true,
+                            portion: portion,
+                            base_price: basePrice,
+                            portion_price: portionPrice,
+                            price: portionPrice, // Eski API uyumluluğu için
+                            calories: portionCalories,
+                            nutrition: scaledNutrition,
+                            ingredients: foodData.ingredients,
+                            allergens: foodData.allergens
+                        };
+                        
+                        // Toplam hesaplamalar için porsiyon fiyatını kullan
+                        totalPrice += portionPrice;
+                        totalCalories += portionCalories;
+                    } else {
+                        // Porsiyon bazlı olmayan ürünler için normal bilgileri kullan
+                        foodInfo = {
+                            name: foodData.name,
+                            portion_based: false,
+                            portion: 1.0,
+                            price: foodData.price,
+                            calories: foodData.calories,
+                            nutrition: foodData.nutrition,
+                            ingredients: foodData.ingredients,
+                            allergens: foodData.allergens
+                        };
+                        
+                        // Toplam hesaplamalar
+                        totalPrice += foodData.price;
+                        totalCalories += foodData.calories;
+                    }
+                    
                     // Her bir tespit için nesne oluştur
                     const detectedItem = {
                         class: foodKey.replace(/_/g, ' '),
                         confidence: confidence,
                         bbox: [x1, y1, x2, y2],
                         segments: segments,
-                        food_info: foodData.food_info
+                        food_info: foodInfo
                     };
                     
                     detectedItems.push(detectedItem);
-                    
-                    // Toplam hesaplamalar
-                    totalPrice += foodData.price;
-                    totalCalories += foodData.calories;
                 }
                 
                 // İşleme süresini simüle et (gerçekçi değerler - 0.05-0.2 saniye arası)
@@ -288,7 +347,7 @@ const SimulationModule = (function() {
                 const response = {
                     success: true,
                     data: detectedItems,
-                    total_price: totalPrice,
+                    total_price: Math.round(totalPrice * 100) / 100,
                     total_calories: totalCalories,
                     processing_time: processingTime
                 };

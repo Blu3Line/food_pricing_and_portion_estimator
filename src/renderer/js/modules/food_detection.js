@@ -10,6 +10,12 @@ const FoodDetectionModule = (function() {
         websocketEnabled: false  // WebSocket entegrasyonu aktif mi?
     };
 
+    // Backend'den gelen toplam değerleri saklayan değişkenler
+    let backendTotals = {
+        totalPrice: 0,
+        totalCalories: 0
+    };
+
     /**
      * Modülü başlatır
      */
@@ -45,7 +51,7 @@ const FoodDetectionModule = (function() {
     /**
      * Görüntüden yemekleri tespit eder
      * @param {string|Object} imageDataOrResult - Base64 formatında resim verisi veya doğrudan tespit sonuçları
-     * @returns {Promise} - Tespit edilen yemekler listesi
+     * @returns {Promise} - Tespit edilen yemekler listesi ve backend toplam değerleri
      */
     const detectFoodsFromImage = async (imageDataOrResult) => {
         // Yükleme göstergesi
@@ -55,6 +61,15 @@ const FoodDetectionModule = (function() {
         if (typeof imageDataOrResult === 'object' && imageDataOrResult !== null) {
             if (imageDataOrResult.success && Array.isArray(imageDataOrResult.data)) {
                 console.log("Veri zaten işlenmiş, sonuçları doğrudan döndürüyorum");
+                
+                // Backend'den gelen toplam değerleri kaydet
+                if (imageDataOrResult.total_price !== undefined) {
+                    backendTotals.totalPrice = imageDataOrResult.total_price;
+                }
+                if (imageDataOrResult.total_calories !== undefined) {
+                    backendTotals.totalCalories = imageDataOrResult.total_calories;
+                }
+                
                 return processDetectionResults(imageDataOrResult.data);
             }
             else if (Array.isArray(imageDataOrResult)) {
@@ -74,6 +89,15 @@ const FoodDetectionModule = (function() {
                 
                 if (response.success) {
                     console.log("WebSocket tespiti başarılı!");
+                    
+                    // Backend'den gelen toplam değerleri kaydet
+                    if (response.total_price !== undefined) {
+                        backendTotals.totalPrice = response.total_price;
+                    }
+                    if (response.total_calories !== undefined) {
+                        backendTotals.totalCalories = response.total_calories;
+                    }
+                    
                     return processDetectionResults(response.data);
                 }
             } catch (error) {
@@ -89,6 +113,15 @@ const FoodDetectionModule = (function() {
                     confidence: settings.confidenceThreshold / 100
                 });
                 console.log("Simülasyon sonuçları:", simResult);
+                
+                // Simülasyon'dan gelen toplam değerleri kaydet
+                if (simResult.total_price !== undefined) {
+                    backendTotals.totalPrice = simResult.total_price;
+                }
+                if (simResult.total_calories !== undefined) {
+                    backendTotals.totalCalories = simResult.total_calories;
+                }
+                
                 return processDetectionResults(simResult.data);
             } catch (error) {
                 console.error("Simülasyon başarısız:", error);
@@ -117,6 +150,14 @@ const FoodDetectionModule = (function() {
                 );
                 
                 if (response.success) {
+                    // Backend'den gelen toplam değerleri kaydet
+                    if (response.total_price !== undefined) {
+                        backendTotals.totalPrice = response.total_price;
+                    }
+                    if (response.total_calories !== undefined) {
+                        backendTotals.totalCalories = response.total_calories;
+                    }
+                    
                     return {
                         success: true,
                         data: response.data,
@@ -135,6 +176,14 @@ const FoodDetectionModule = (function() {
                 const response = isRealtime ? 
                     await SimulationModule.simulateRealtimeDetection({ confidence: settings.confidenceThreshold / 100 }) :
                     await SimulationModule.simulateDetection({ confidence: settings.confidenceThreshold / 100 });
+                
+                // Simülasyon'dan gelen toplam değerleri kaydet
+                if (response.total_price !== undefined) {
+                    backendTotals.totalPrice = response.total_price;
+                }
+                if (response.total_calories !== undefined) {
+                    backendTotals.totalCalories = response.total_calories;
+                }
                 
                 return {
                     success: true,
@@ -186,9 +235,14 @@ const FoodDetectionModule = (function() {
             const detectedFood = {
                 id: `${detection.class}_${i}`, // Benzersiz tespit ID'si
                 name: foodInfo.name || detection.class,
-                price: foodInfo.price || 0,
+                // Dinamik porsiyon desteği - porsiyon bazlı ise portion_price, değilse price kullan
+                price: foodInfo.portion_price || foodInfo.price || 0,
+                basePrice: foodInfo.base_price || foodInfo.price || 0, // Temel fiyat (porsiyon=1 için)
                 calories: foodInfo.calories || 0,
                 confidence: Math.round(detection.confidence * 100), // Yüzdelik değer (0-100)
+                // Porsiyon bilgileri
+                portionBased: foodInfo.portion_based || false,
+                portion: foodInfo.portion || 1.0,
                 boundingBox: {
                     x: detection.bbox[0],
                     y: detection.bbox[1],
@@ -215,24 +269,6 @@ const FoodDetectionModule = (function() {
         
         // Güven skoruna göre sırala (yüksekten düşüğe)
         return processedResults.sort((a, b) => b.confidence - a.confidence);
-    };
-
-    /**
-     * Tespit edilen yemeklerin toplam fiyatını hesaplar
-     * @param {Array} foods - Yemek listesi
-     * @returns {number} - Toplam fiyat
-     */
-    const calculateTotalPrice = (foods) => {
-        return foods.reduce((total, food) => total + food.price, 0);
-    };
-
-    /**
-     * Tespit edilen yemeklerin toplam kalorisini hesaplar
-     * @param {Array} foods - Yemek listesi
-     * @returns {number} - Toplam kalori
-     */
-    const calculateTotalCalories = (foods) => {
-        return foods.reduce((total, food) => total + food.calories, 0);
     };
 
     /**
@@ -264,15 +300,22 @@ const FoodDetectionModule = (function() {
         }
     };
 
+    /**
+     * Backend'den alınan toplam değerleri döndürür
+     * @returns {Object} - Toplam fiyat ve kalori
+     */
+    const getBackendTotals = () => {
+        return { ...backendTotals };
+    };
+
     // Public API
     return {
         init,
         detectFoodsFromImage,
         detectFoodsViaWebSocket,
-        calculateTotalPrice,
-        calculateTotalCalories,
         updateSettings,
-        getSettings: () => ({ ...settings }) // Ayarların kopyasını döndür
+        getSettings: () => ({ ...settings }), // Ayarların kopyasını döndür
+        getBackendTotals // Backend'den gelen toplam değerleri alma fonksiyonunu public API'ye eklendi
     };
 })();
 
