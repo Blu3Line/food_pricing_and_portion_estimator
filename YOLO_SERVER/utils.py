@@ -114,24 +114,34 @@ def round_to_nearest_portion(calculated_portion):
     return round(calculated_portion * 2) / 2
 
 # Sağlam ölçek faktörü hesaplama (birden fazla referans için)
-def calculate_robust_scale_factor(reference_objects):
+def calculate_scale_factor_from_bbox_area(reference_objects):
     """
-    Calculate median scale factor from multiple reference objects
-    TR: Birden fazla referans nesnesi olduğunda ortalama ölçek faktörü hesaplar.
+    Calculate scale factor using the entire bounding box area of reference objects
+    TR: Referans nesnelerin tüm sınırlayıcı kutu alanını kullanarak ölçek faktörü hesaplar.
     """
     scale_factors = []
+    
     for obj in reference_objects:
         if obj["class"] in ["catal", "kasik"]:
+            # Get reference object's real area in cm²
             ref_area_cm2 = REFERENCE_OBJECTS[obj["class"]]["area"]
-            pixel_area = calculate_segment_area(obj["segments"])
             
-            if pixel_area > 0:
-                scale_factors.append(ref_area_cm2 / pixel_area)
+            # Get bounding box coordinates
+            x1, y1, x2, y2 = obj["bbox"]
+            
+            # Calculate area of bounding box in pixels²
+            bbox_area_px = (x2 - x1) * (y2 - y1)
+            
+            if bbox_area_px > 0:
+                # Calculate cm² per pixel²
+                scale_factor = ref_area_cm2 / bbox_area_px
+                scale_factors.append(scale_factor)
     
-    # Ortalama veya medyan kullanma
+    # Return median scale factor or default if none found
     if scale_factors:
         return statistics.median(scale_factors)
-    return DEFAULT_SCALE_FACTOR # hiçbir referans nesne yoksa varsayılan ölçek faktörünü kullan (çatal veya kaşık yok)
+    # hiçbir referans nesne yoksa varsayılan ölçek faktörünü kullan (çatal veya kaşık yok)
+    return DEFAULT_SCALE_FACTOR
 
 # Besin değerlerini porsiyona göre güncelleme
 def scale_nutrition_values(nutrition, portion):

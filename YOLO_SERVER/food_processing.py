@@ -1,7 +1,7 @@
 import time
 from YOLO_SERVER.model import predict_with_yolo, extract_polygon_from_mask
 from YOLO_SERVER.utils import (
-    calculate_segment_area, calculate_robust_scale_factor,
+    calculate_segment_area, calculate_scale_factor_from_bbox_area,
     pixel_area_to_cm2, compute_volume, compute_mass,
     compute_portion, round_to_nearest_portion, scale_nutrition_values
 )
@@ -102,7 +102,7 @@ async def process_image(model, image, food_database, confidence_threshold=0.5, f
                 detections.append(detection)
         
         # Ölçek faktörünü hesapla
-        scale_factor = calculate_robust_scale_factor(reference_objects)
+        scale_factor = calculate_scale_factor_from_bbox_area(reference_objects)
         print(f"Hesaplanan ölçek faktörü: {scale_factor}")
         
         # Track total price and calories
