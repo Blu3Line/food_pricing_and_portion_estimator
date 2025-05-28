@@ -7,7 +7,10 @@ PORT = 8765
 # Current directory path - updated to point to parent directory
 CURRENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Food database path
+# SQLite database path (ana veritabanı)
+SQLITE_DB_PATH = os.path.join(CURRENT_DIR, 'foods.db')
+
+# JSON database path (sadece migration için)
 FOOD_DB_PATH = os.path.join(CURRENT_DIR, 'foodsDB.json')
 
 # YOLO model settings

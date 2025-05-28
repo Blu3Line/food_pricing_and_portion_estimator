@@ -1,6 +1,8 @@
 #YOLO model
 *.pt
 
+*.db
+*.backup
 #python cache
 __pycache__/
 

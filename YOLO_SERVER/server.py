@@ -2,10 +2,14 @@ import json
 import websockets
 from YOLO_SERVER.utils import base64_to_image, load_food_database
 from YOLO_SERVER.food_processing import process_image
-from YOLO_SERVER.config import HOST, PORT, FOOD_DB_PATH
+from YOLO_SERVER.config import HOST, PORT
 
-# Load food database
-FOOD_DATABASE = load_food_database(FOOD_DB_PATH)
+# Load food database from SQLite only
+try:
+    FOOD_DATABASE = load_food_database()
+except Exception as e:
+    print(f"❌ Veritabanı yükleme hatası: {e}")
+    raise
 
 async def websocket_handler(websocket, model):
     """Handle WebSocket connection and messages"""

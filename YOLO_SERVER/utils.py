@@ -5,19 +5,19 @@ import numpy as np
 import statistics
 from YOLO_SERVER.config import REFERENCE_OBJECTS, DEFAULT_SCALE_FACTOR
 
-def load_food_database(json_path):
+def load_food_database():
     """
-    Load food database from a JSON file
-    TR: JSON dosyasından yemek veritabanını yükler.
+    Load food database from SQLite
+    TR: SQLite veritabanından yemek veritabanını yükler.
     """
     try:
-        with open(json_path, 'r', encoding='utf-8') as f:
-            food_db = json.load(f)
-        print(f"Food database loaded successfully: {json_path}")
+        from YOLO_SERVER.database import load_food_database_from_sqlite
+        food_db = load_food_database_from_sqlite()
+        print(f"Food database loaded from SQLite successfully: {len(food_db)} items")
         return food_db
     except Exception as e:
-        print(f"Error loading food database: {e}")
-        return {}
+        print(f"Error loading food database from SQLite: {e}")
+        raise Exception(f"SQLite veritabanı yüklenemedi: {e}")
 
 # Base64 encoded görüntüyü numpy array'e dönüştürme
 def base64_to_image(base64_string):
