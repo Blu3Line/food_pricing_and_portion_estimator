@@ -50,11 +50,11 @@ class DatabaseManager:
                 )
             ''')
             
-            # Besin değerleri tablosu
+            # Besin değerleri tablosu (one to one ilişkisi)
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS nutrition (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    food_id TEXT NOT NULL,
+                    food_id TEXT NOT NULL UNIQUE,
                     protein TEXT,
                     carbs TEXT,
                     fat TEXT,

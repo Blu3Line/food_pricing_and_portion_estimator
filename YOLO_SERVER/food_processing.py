@@ -3,7 +3,8 @@ from YOLO_SERVER.model import predict_with_yolo, extract_polygon_from_mask
 from YOLO_SERVER.utils import (
     calculate_segment_area, calculate_scale_factor_from_bbox_area,
     pixel_area_to_cm2, compute_volume, compute_mass,
-    compute_portion, round_to_nearest_portion, scale_nutrition_values
+    compute_portion, round_to_nearest_portion, scale_nutrition_values,
+    analyze_segment_geometry, estimate_dynamic_height, compute_advanced_volume
 )
 from YOLO_SERVER.config import DEFAULT_FOOD_HEIGHT_CM, DEFAULT_FOOD_DENSITY, DEFAULT_PORTION_MASS
 
@@ -114,22 +115,36 @@ async def process_image(model, image, food_database, confidence_threshold=0.5, f
             
             # Yiyecek bilgisi
             food_info = detection["food_info"]
+            #TODO: classların isimleriyle aşağıdak kodlar uyuşuyor mu bakılacak.
+            normalized_class = detection['class'].lower().replace(' ', '_')
             
             # Porsiyon bazlı mı kontrol et
             if 'portion_based' in food_info and food_info['portion_based']:
+                # Segmentasyon geometrisini analiz et
+                geometry_info = analyze_segment_geometry(detection["segments"])
+                
                 # Segmentasyon alanı (piksel)
-                segment_area_px = calculate_segment_area(detection["segments"])
+                segment_area_px = geometry_info["area"]
                 
                 # Gerçek dünya alanı (cm²)
                 real_area_cm2 = pixel_area_to_cm2(segment_area_px, scale_factor)
                 
-                # Yiyecek yüksekliği ve yoğunluğu
-                food_height_cm = food_info.get('food_height_cm', DEFAULT_FOOD_HEIGHT_CM)
-                food_density = food_info.get('food_density_g_per_cm3', DEFAULT_FOOD_DENSITY)
-                std_portion_mass = food_info.get('food_portion_reference_mass_g', DEFAULT_PORTION_MASS)
+                # Geometry info'yu real area ile güncelle
+                geometry_info_real = geometry_info.copy()
+                geometry_info_real["area"] = real_area_cm2
                 
-                # Hacim ve kütle hesapla
-                volume_cm3 = compute_volume(real_area_cm2, food_height_cm)
+                # Temel yiyecek yüksekliği, yoğunluğu ve standart porsiyon kütlesi verilerini al
+                base_height_cm = food_info.get('base_height_cm',  DEFAULT_FOOD_HEIGHT_CM)
+                food_density = food_info.get('density_g_per_cm3', DEFAULT_FOOD_DENSITY)
+                std_portion_mass = food_info.get('reference_mass_g', DEFAULT_PORTION_MASS)
+                
+                # Dinamik yükseklik tahmini
+                estimated_height_cm = estimate_dynamic_height(normalized_class, geometry_info_real, base_height_cm)
+                
+                # Gelişmiş hacim hesaplama
+                volume_cm3 = compute_advanced_volume(normalized_class, real_area_cm2, estimated_height_cm, geometry_info)
+                
+                # Kütle hesapla
                 mass_g = compute_mass(volume_cm3, food_density)
                 
                 # Porsiyon hesapla ve yuvarla
@@ -137,10 +152,13 @@ async def process_image(model, image, food_database, confidence_threshold=0.5, f
                 portion = round_to_nearest_portion(raw_portion)
                 
                 # Hesaplama detaylarını yazdır (debug)
-                print(f"{food_info['name']} için hesaplama:")
+                print(f"\n{food_info['name']} için gelişmiş hesaplama:")
                 print(f"  Segment Alanı: {segment_area_px:.2f} piksel²")
                 print(f"  Gerçek Alan: {real_area_cm2:.2f} cm²")
-                print(f"  Hacim: {volume_cm3:.2f} cm³")
+                print(f"  Geometri - Dairesellik: {geometry_info['circularity']:.3f}")
+                print(f"  Baz Yükseklik: {base_height_cm:.2f} cm")
+                print(f"  Tahmini Yükseklik: {estimated_height_cm:.2f} cm")
+                print(f"  Gelişmiş Hacim: {volume_cm3:.2f} cm³")
                 print(f"  Kütle: {mass_g:.2f} g")
                 print(f"  Ham Porsiyon: {raw_portion:.2f}")
                 print(f"  Yuvarlanmış Porsiyon: {portion}")

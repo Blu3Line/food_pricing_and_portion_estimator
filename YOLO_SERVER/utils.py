@@ -1,8 +1,8 @@
-import json
 import base64
 import cv2
 import numpy as np
 import statistics
+import math
 from YOLO_SERVER.config import REFERENCE_OBJECTS, DEFAULT_SCALE_FACTOR
 
 def load_food_database():
@@ -53,15 +53,141 @@ def calculate_segment_area(segments):
     area = cv2.contourArea(points)
     return area
 
-# Ölçek faktörünü hesapla
-def compute_scale_factor(ref_area_cm2, ref_area_px):
+# Segmentasyon geometrisini analiz et
+def analyze_segment_geometry(segments):
     """
-    Calculate scale factor (cm²/pixel²)
-    TR: 1 piksel kareden kaç cm kare olduğunu hesaplar.
+    Analyze segment geometry to extract useful parameters for volume estimation
+    TR: Hacim tahmini için segment geometrisini analiz eder
     """
-    if ref_area_px <= 0:
-        return DEFAULT_SCALE_FACTOR
-    return ref_area_cm2 / ref_area_px
+    if not segments or len(segments) < 3:
+        return {"area": 0, "circularity": 0.0}
+    
+    points = np.array(segments, dtype=np.int32)
+    
+    # Alan hesapla
+    area = cv2.contourArea(points)
+    
+    # Çevre hesapla
+    perimeter = cv2.arcLength(points, True)
+    
+    # Dairesellik (circularity) - daire ne kadar yakın 0-1 arası, 1=mükemmel daire
+    circularity = 4 * math.pi * area / (perimeter * perimeter) if perimeter > 0 else 0
+    
+    return {
+        "area": area,
+        "circularity": circularity
+    }
+
+# Dinamik yükseklik tahmini
+def estimate_dynamic_height(food_type, geometry_info, base_height_cm):
+    """
+    Estimate dynamic height based on food type and geometry
+    TR: Yemek tipi ve geometriye göre dinamik yükseklik tahmini
+    """
+    area_cm2 = geometry_info["area"]
+    circularity = geometry_info["circularity"]
+    equivalent_diameter = math.sqrt(area_cm2 / math.pi) * 2  # Eşdeğer çap (cm)
+    
+    # Farklı yemek tiplerini kategorize et
+    liquid_foods = ["corba"]
+    flat_foods = ["makarna", "tavuk_kul_basti", "cig_kofte", "salata"]
+    dome_foods = ["pirinc_pilav", "bulgur_pilav"]
+    irregular_foods = ["tavuk_but", "tavuk_sote", "kuru_fasulye"]
+    
+    height_multiplier = 1.0
+    
+    if food_type in liquid_foods:
+        # Sıvı yemekler: Tabak boyutuna göre derinlik değişir
+        if equivalent_diameter > 8:  # Büyük tabak (>8cm çap)
+            height_multiplier = 0.6  # Daha sığ
+        elif equivalent_diameter > 5:  # Orta tabak (5-8cm arası)
+            height_multiplier = 0.8
+        else:  # Küçük kase (<5cm)
+            height_multiplier = 1.3  # Daha derin
+            
+    elif food_type in flat_foods:
+        # Düz yemekler: Şekle göre yükseklik ayarı
+        if food_type == "makarna":
+            # Makarna biraz daha kalın olabilir
+            height_multiplier = 0.6 + (circularity * 0.4)  # 0.6-1.0 arası
+        elif food_type == "salata":
+            # Salata gevşek doldurulur
+            height_multiplier = 0.8 + (circularity * 0.3)  # 0.8-1.1 arası
+        else:
+            # Diğer düz yemekler
+            height_multiplier = 0.5 + (circularity * 0.3)  # 0.5-0.8 arası
+        
+    elif food_type in dome_foods:
+        # Kubbe şekilli yemekler: Pilav türleri
+        # Büyük porsiyonlarda daha yüksek yığılır
+        size_factor = min(equivalent_diameter / 8, 1.5)  # 8cm referans
+        height_multiplier = 0.9 + (size_factor * 0.4)  # 0.9-1.3 arası
+        
+    elif food_type in irregular_foods:
+        # Düzensiz şekilli yemekler
+        if food_type == "tavuk_but":
+            # Tavuk but kalın et parçası
+            height_multiplier = 1.1 + (min(area_cm2 / 20, 0.5))  # 1.1-1.6 arası
+        elif food_type == "kuru_fasulye":
+            # Fasulye soslu, orta yükseklik
+            height_multiplier = 0.8 + (circularity * 0.3)  # 0.8-1.1 arası
+        else:
+            # Diğer irregular foods
+            # if aspect_ratio > 2.0:  # Uzun şekiller
+            #     height_multiplier = 1.0 + (min(area_cm2 / 30, 0.4))
+            # else:
+            #     height_multiplier = 0.9 + (circularity * 0.4)
+            height_multiplier = 1.0
+    
+    # Minimum ve maksimum sınırları (daha realistik)
+    height_multiplier = max(0.4, min(1.8, height_multiplier))
+    
+    estimated_height = base_height_cm * height_multiplier
+    
+    return estimated_height
+
+# Gelişmiş hacim hesaplama
+def compute_advanced_volume(food_type, area_cm2, estimated_height_cm, geometry_info):
+    """
+    Calculate volume using advanced geometric approximations
+    TR: Gelişmiş geometrik yaklaşımlarla hacim hesaplar
+    """
+    circularity = geometry_info["circularity"]
+    
+    # Yemek tipine göre hacim hesaplama stratejisi
+    liquid_foods = ["corba"]
+    flat_foods = ["makarna", "tavuk_kul_basti", "cig_kofte", "salata"]
+    dome_foods = ["pirinc_pilav", "bulgur_pilav"]
+    irregular_foods = ["tavuk_but", "tavuk_sote", "kuru_fasulye"]
+    
+    if food_type in liquid_foods:
+        # Sıvı yemekler: Silindir yaklaşımı
+        volume = area_cm2 * estimated_height_cm
+        
+    elif food_type in flat_foods:
+        # Düz yemekler: Eliptik silindir
+        volume = area_cm2 * estimated_height_cm * 0.85  # Düzlük faktörü
+        
+    elif food_type in dome_foods:
+        # Kubbe şekilli: Yarım elipsoid yaklaşımı
+        # V = (2/3) * π * a * b * c (a,b = yarı eksenler, c = yükseklik)
+        radius = math.sqrt(area_cm2 / math.pi)  # Eşdeğer dairenin yarıçapı
+        volume = (2/3) * math.pi * radius * radius * estimated_height_cm
+        
+    elif food_type in irregular_foods:
+        # Düzensiz şekiller: Karmaşık geometri approximation
+        if circularity > 0.7:  # Daire benzeri
+            # Yarım küre yaklaşımı
+            radius = math.sqrt(area_cm2 / math.pi)
+            volume = (2/3) * math.pi * (radius ** 2) * estimated_height_cm
+        else:
+            # Düzensiz prizma
+            volume = area_cm2 * estimated_height_cm * 0.75  # Düzensizlik faktörü
+    else:
+        # Varsayılan: Basit prizma
+        volume = area_cm2 * estimated_height_cm
+    
+    return max(volume, 0.1)  # Minimum hacim
 
 # Piksel alanını cm² cinsinden hesapla resimde gerçek alanı bulmak için ilgili yemeğin
 def pixel_area_to_cm2(pixel_area, scale_factor):
