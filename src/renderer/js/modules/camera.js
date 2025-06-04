@@ -124,31 +124,74 @@ const CameraModule = (function() {
             });
         }
 
-        // Electron ortamını kontrol et ve kamera listesini getir
-        if (window.environment && window.environment.isElectron) {
-            try {
-                await loadAvailableCameras();
-            } catch (error) {
-                console.error('Kamera listesi yüklenirken hata oluştu:', error);
-            }
+        // Kamera listesini yükle (hem Electron hem tarayıcı ortamı için)
+        try {
+            await loadAvailableCameras();
+        } catch (error) {
+            console.error('Kamera listesi yüklenirken hata oluştu:', error);
         }
         
         return true;
     };
 
     /**
-     * Kullanılabilir kameraları yükler (Electron'a özgü)
+     * Kullanılabilir kameraları yükler
      */
     const loadAvailableCameras = async () => {
-        if (window.electronAPI && window.electronAPI.getVideoSources) {
-            try {
-                const cameras = await window.electronAPI.getVideoSources();
-                console.log('Kullanılabilir kameralar:', cameras);
+        try {
+            // MediaDevices API'sini kullanarak cihazları listele
+            if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
                 
-                // Kameralara göre UI güncellemesi yapılabilir
-                // Örneğin: Kamera seçim dropdown'ı eklenebilir
-            } catch (error) {
-                console.error('Kamera listesi alınırken hata:', error);
+                console.log('Kullanılabilir kameralar:', videoDevices);
+                
+                // Kamera seçim dropdown'ını güncelle
+                const cameraSelect = document.getElementById('cameraSelect');
+                if (cameraSelect) {
+                    // Mevcut seçenekleri temizle (varsayılan hariç)
+                    while (cameraSelect.children.length > 1) {
+                        cameraSelect.removeChild(cameraSelect.lastChild);
+                    }
+                    
+                    // Kameraları dropdown'a ekle
+                    videoDevices.forEach((device, index) => {
+                        const option = document.createElement('option');
+                        option.value = device.deviceId;
+                        // Label yoksa generic isim ver
+                        option.textContent = device.label || `Kamera ${index + 1}`;
+                        cameraSelect.appendChild(option);
+                    });
+                    
+                    // Eğer hiç kamera yoksa bilgi ver
+                    if (videoDevices.length === 0) {
+                        const option = document.createElement('option');
+                        option.value = "";
+                        option.textContent = "Kamera bulunamadı";
+                        option.disabled = true;
+                        cameraSelect.appendChild(option);
+                    }
+                }
+            } else {
+                console.warn('MediaDevices API desteklenmiyor');
+            }
+        } catch (error) {
+            console.error('Kamera listesi alınırken hata:', error);
+            
+            // Kamera erişimi için izin istememiz gerekebilir
+            if (error.name === 'NotAllowedError') {
+                console.log('Kamera izni gerekli - önce izin istenerek tekrar denenecek');
+                try {
+                    // Geçici olarak kullanıcı medyasına erişim iste (sadece listelemek için)
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    // İzin alındıktan sonra stream'i durdur
+                    stream.getTracks().forEach(track => track.stop());
+                    
+                    // İzin alındıktan sonra tekrar dene
+                    setTimeout(() => loadAvailableCameras(), 1000);
+                } catch (permissionError) {
+                    console.error('Kamera izni alınamadı:', permissionError);
+                }
             }
         }
     };
@@ -158,10 +201,27 @@ const CameraModule = (function() {
      * @param {string} deviceId - Kamera aygıt ID'si
      */
     const selectCamera = (deviceId) => {
-        currentConstraints = { 
-            video: deviceId ? { deviceId: { exact: deviceId } } : true,
-            audio: false 
-        };
+        if (deviceId && deviceId.trim() !== '') {
+            currentConstraints = { 
+                video: { 
+                    deviceId: { exact: deviceId },
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                },
+                audio: false 
+            };
+            console.log('Kamera seçildi:', deviceId);
+        } else {
+            // Varsayılan kamera
+            currentConstraints = { 
+                video: {
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }, 
+                audio: false 
+            };
+            console.log('Varsayılan kamera seçildi');
+        }
     };
 
     /**
@@ -334,6 +394,31 @@ const CameraModule = (function() {
             if (confidenceValue) {
                 confidenceValue.textContent = `${Math.round(confidenceThreshold * 100)}%`;
             }
+        }
+        
+        // Kamera seçici dropdown
+        const cameraSelect = document.getElementById('cameraSelect');
+        if (cameraSelect) {
+            cameraSelect.addEventListener('change', (e) => {
+                const selectedCameraId = e.target.value;
+                console.log('Seçilen kamera ID:', selectedCameraId);
+                selectCamera(selectedCameraId);
+                
+                // Eğer kamera çalışıyorsa yeniden başlat
+                if (photoStreaming) {
+                    stopPhotoMode();
+                    setTimeout(() => {
+                        startPhotoMode();
+                    }, 500);
+                }
+                
+                if (realtimeStreaming) {
+                    stopRealtimeMode();
+                    setTimeout(() => {
+                        startRealtimeMode();
+                    }, 500);
+                }
+            });
         }
     };
 

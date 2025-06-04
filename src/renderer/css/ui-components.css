@@ -512,6 +512,50 @@ footer {
     margin-bottom: 5px;
 }
 .confidence-value {
+    font-weight: 600;
     text-align: center;
-    font-weight: bold;
+    margin-top: var(--space-sm);
+    color: var(--primary-color);
+}
+
+/* Kamera Seçici Dropdown Stili */
+.camera-selector {
+    margin-top: var(--space-md);
+    margin-bottom: var(--space-md);
+}
+
+.camera-selector label {
+    display: block;
+    margin-bottom: var(--space-sm);
+    font-weight: 500;
+    color: var(--text-color-dark);
+    font-size: var(--font-small);
+}
+
+.camera-select-dropdown {
+    width: 100%;
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    background-color: var(--white);
+    color: var(--text-color-dark);
+    font-size: var(--font-small);
+    transition: border-color var(--transition-normal) ease, box-shadow var(--transition-normal) ease;
+    cursor: pointer;
+}
+
+.camera-select-dropdown:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(0, 152, 121, 0.2);
+}
+
+.camera-select-dropdown:hover {
+    border-color: #999;
+}
+
+.camera-select-dropdown option {
+    padding: var(--space-sm);
+    background-color: var(--white);
+    color: var(--text-color-dark);
 }
