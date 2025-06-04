@@ -163,14 +163,20 @@ app.on('window-all-closed', () => {
 function setupIpcHandlers() {
   // Kamera kaynaklarını getir
   ipcMain.handle('get-video-sources', async () => {
-    const sources = await desktopCapturer.getSources({
-      types: ['camera'],
-      thumbnailSize: { width: 0, height: 0 }
-    });
-    return sources.map(source => ({
-      id: source.id,
-      name: source.name
-    }));
+    try {
+      // Renderer process'ten MediaDevices API'yi kullanarak kamera listesi al
+      // Bu işlem renderer process'te yapılacak ve sonuç buraya gönderilecek
+      return [];
+    } catch (error) {
+      console.error('Kamera listesi alma hatası:', error);
+      return [];
+    }
+  });
+
+  // Medya cihazlarını numaralandır (renderer process'e MediaDevices API erişimi ver)
+  ipcMain.handle('enumerate-devices', async () => {
+    // Bu işlem renderer process'te MediaDevices API ile yapılacak
+    return { success: true };
   });
 
   // Görüntüyü kaydet

@@ -5,6 +5,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   // Kamera erişimi için
   getVideoSources: () => ipcRenderer.invoke('get-video-sources'),
+  enumerateDevices: () => ipcRenderer.invoke('enumerate-devices'),
   
   // Dosya sistemi işlemleri için
   saveImage: (data) => ipcRenderer.invoke('save-image', data),
