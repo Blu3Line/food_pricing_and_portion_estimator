@@ -333,11 +333,14 @@ const WebSocketManager = (function() {
                 }
                 
                 // JSON mesajı oluştur
+                const confidenceValue = config.confidence || 0.5;
+                console.log("🔍 WebSocket Manager - Gelen config:", config, "Kullanılacak confidence:", confidenceValue);
+                
                 const message = {
                     type: type,
                     data: processedImageData,
                     config: {
-                        confidence: config.confidence || 0.5,
+                        confidence: confidenceValue,
                         ...config
                     }
                 };
@@ -362,7 +365,14 @@ const WebSocketManager = (function() {
                 
                 // İsteği gönder
                 const jsonString = JSON.stringify(message);
-                console.log('📤 CLIENT REQUEST JSON:', jsonString);
+                
+                // Console için data kısmını kısaltılmış göster
+                const logMessage = {
+                    ...message,
+                    data: message.data ? `[BASE64_DATA:${message.data.length}_chars]` : null
+                };
+                console.log('📤 CLIENT REQUEST JSON:', JSON.stringify(logMessage));
+                
                 socket.send(jsonString);
                 
             } catch (error) {

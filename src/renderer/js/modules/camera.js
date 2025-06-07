@@ -18,7 +18,6 @@ const CameraModule = (function() {
     let websocketEnabled = false; // WebSocket entegrasyonu aktif mi?
     let realtimeProcessing = false; // Gerçek zamanlı işlem devam ediyor mu?
     let realtimeAnalysisInterval = null; // Gerçek zamanlı analiz zamanlayıcısı
-    let confidenceThreshold = 0.5; // YOLO güven eşiği
     let realtimeStreamController = null; // WebSocket stream controller
 
     /**
@@ -111,18 +110,6 @@ const CameraModule = (function() {
         // WebSocket entegrasyonunu kontrol et
         websocketEnabled = typeof WebSocketManager !== 'undefined';
         
-        // Confidence slider dinleyicisini ekle
-        const confidenceSlider = document.getElementById('confidenceSlider');
-        if (confidenceSlider) {
-            confidenceSlider.addEventListener('input', (e) => {
-                confidenceThreshold = parseFloat(e.target.value);
-                // Değer göstergesini güncelle
-                const confidenceValue = document.getElementById('confidenceValue');
-                if (confidenceValue) {
-                    confidenceValue.textContent = `${Math.round(confidenceThreshold * 100)}%`;
-                }
-            });
-        }
 
         // Kamera listesini yükle (hem Electron hem tarayıcı ortamı için)
         try {
@@ -386,15 +373,7 @@ const CameraModule = (function() {
             analyzePhotoBtn.addEventListener('click', analyzePhoto);
         }
         
-        // Confidence slider
-        const confidenceSlider = document.getElementById('confidenceSlider');
-        if (confidenceSlider) {
-            confidenceSlider.value = confidenceThreshold;
-            const confidenceValue = document.getElementById('confidenceValue');
-            if (confidenceValue) {
-                confidenceValue.textContent = `${Math.round(confidenceThreshold * 100)}%`;
-            }
-        }
+        // Confidence slider (artık ConfidenceSliderModule tarafından yönetiliyor, kaldırıldı)
         
         // Kamera seçici dropdown
         const cameraSelect = document.getElementById('cameraSelect');
@@ -695,11 +674,12 @@ const CameraModule = (function() {
         // WebSocket bağlantısı var mı kontrol et
         if (websocketEnabled && WebSocketManager.isConnected()) {
             try {
+                console.log('🎯 Camera Module - WebSocket\'e gönderilecek confidence:', AppConfig.confidenceThreshold);
                 // Resim verilerini WebSocket üzerinden gönder
                 const response = await WebSocketManager.sendImage(
                     resultImage.src, 
                     'image', 
-                    { confidence: confidenceThreshold }
+                    { confidence: AppConfig.confidenceThreshold }
                 );
                 
                 if (response.success) {
@@ -752,7 +732,7 @@ const CameraModule = (function() {
             
             // Simülasyon modülüyle tespit yap
             const response = await SimulationModule.simulateDetection({
-                confidence: confidenceThreshold
+                confidence: AppConfig.confidenceThreshold
             });
             
             if (response.success) {
@@ -825,7 +805,7 @@ const CameraModule = (function() {
                 200,
                 // Konfigürasyon
                 {
-                    confidence: confidenceThreshold,
+                    confidence: AppConfig.confidenceThreshold,
                     // Sonuç callback'i
                     onResult: (response) => {
                         // Tespit sonuç canvas'ını güncelle
@@ -923,7 +903,7 @@ const CameraModule = (function() {
                     const response = await WebSocketManager.sendImage(
                         frameData, 
                         'webcam', 
-                        { confidence: confidenceThreshold }
+                        { confidence: AppConfig.confidenceThreshold }
                     );
                     
                     // Tespit sonuç canvas'ını güncelle
@@ -968,7 +948,7 @@ const CameraModule = (function() {
                 // WebSocket bağlantısı yoksa simülasyon modülünü kullan
                 try {
                     const response = await SimulationModule.simulateDetection({
-                        confidence: confidenceThreshold
+                        confidence: AppConfig.confidenceThreshold
                     });
                     
                     // Tespit sonuç canvas'ını güncelle
