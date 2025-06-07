@@ -32,8 +32,6 @@ REFERENCE_OBJECTS = {
     }
 }
 
-# Varsayılan ölçek faktörü (hiçbir referans nesne tespit edilemediğinde)
-DEFAULT_SCALE_FACTOR = 0.003  # 1 piksel² = 0.003 cm²
 
 # Default food properties when not found in database
 DEFAULT_FOOD_HEIGHT_CM = 2.0

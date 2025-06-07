@@ -102,9 +102,19 @@ async def process_image(model, image, food_database, confidence_threshold=0.5, f
                 # Sonuç objesini ekle
                 detections.append(detection)
         
-        # Ölçek faktörünü hesapla
-        scale_factor = calculate_scale_factor_from_bbox_area(reference_objects)
-        print(f"Hesaplanan ölçek faktörü: {scale_factor}")
+        # Kaşık veya çatal var mı kontrol et
+        has_utensils = len(reference_objects) > 0
+        
+        # Eğer kaşık/çatal yoksa porsiyon hesaplamayı deaktif et
+        if not has_utensils:
+            enable_portion_calculation = False
+            print("Kaşık veya çatal tespit edilmedi - porsiyon hesaplama deaktif")
+        
+        # Ölçek faktörünü hesapla (sadece kaşık/çatal varsa)
+        scale_factor = None
+        if has_utensils:
+            scale_factor = calculate_scale_factor_from_bbox_area(reference_objects)
+            print(f"Hesaplanan ölçek faktörü: {scale_factor}")
         
         # Track total price and calories
         total_price = 0

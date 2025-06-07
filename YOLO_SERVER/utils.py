@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 import statistics
 import math
-from YOLO_SERVER.config import REFERENCE_OBJECTS, DEFAULT_SCALE_FACTOR
+from YOLO_SERVER.config import REFERENCE_OBJECTS
 
 def load_food_database():
     """
@@ -263,11 +263,11 @@ def calculate_scale_factor_from_bbox_area(reference_objects):
                 scale_factor = ref_area_cm2 / bbox_area_px
                 scale_factors.append(scale_factor)
     
-    # Return median scale factor or default if none found
+    # Return median scale factor if reference objects found
     if scale_factors:
         return statistics.median(scale_factors)
-    # hiçbir referans nesne yoksa varsayılan ölçek faktörünü kullan (çatal veya kaşık yok)
-    return DEFAULT_SCALE_FACTOR
+    # Eğer referans nesne yoksa None döndür
+    return None
 
 # Besin değerlerini porsiyona göre güncelleme
 def scale_nutrition_values(nutrition, portion):
