@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Paneli - Yemekhane Yemek Tanıma Sistemi</title>
+    <!-- CSS dosyalarını içe aktar -->
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body data-page-type="admin">
+    <!-- Header Bölümü -->
+    <header class="site-header">
+        <div class="header-container">
+            <div class="logo">
+                <a href="index.html">Yemek Tanıma</a>
+            </div>
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="index.html">Ana Sayfa</a></li>
+                    <li><a href="#" class="active">Admin Paneli</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <!-- Admin Panel Header -->
+        <div class="admin-header">
+            <h2 class="page-title">Yemek Veritabanı Yönetimi</h2>
+            
+            <!-- Bağlantı Durumu -->
+            <div class="connection-status-bar">
+                <div id="adminWebsocketStatus" class="websocket-status status-disconnected">
+                    <span class="status-indicator"></span>
+                    <span>Bağlantı Kesildi</span>
+                </div>
+                <div class="connection-controls">
+                    <button id="adminWsConnectBtn" class="btn btn-primary btn-sm">
+                        <i class="fas fa-plug"></i> Bağlan
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="admin-container">
+            <!-- Sol Panel: Arama ve Filtreler -->
+            <div class="admin-sidebar">
+                <!-- Arama Bölümü -->
+                <div class="search-section card">
+                    <h3><i class="fas fa-search"></i> Arama ve Filtreler</h3>
+                    
+                    <div class="search-group">
+                        <label for="foodSearch">Yemek Ara:</label>
+                        <input type="text" id="foodSearch" class="search-input" placeholder="Yemek adı veya ID...">
+                    </div>
+                    
+
+                    
+                    <div class="filter-group">
+                        <label for="portionFilter">Porsiyon Tipi:</label>
+                        <select id="portionFilter" class="filter-select">
+                            <option value="">Tümü</option>
+                            <option value="true">Porsiyon Bazlı</option>
+                            <option value="false">Sabit Porsiyon</option>
+                        </select>
+                    </div>
+                    
+                    <div class="price-range">
+                        <label>Fiyat Aralığı:</label>
+                        <div class="range-inputs">
+                            <input type="number" id="minPrice" placeholder="Min ₺" step="0.01">
+                            <input type="number" id="maxPrice" placeholder="Max ₺" step="0.01">
+                        </div>
+                    </div>
+                    
+                    <button id="clearFilters" class="btn btn-secondary btn-block">
+                        <i class="fas fa-times"></i> Filtreleri Temizle
+                    </button>
+                </div>
+
+                <!-- İstatistikler -->
+                <div class="stats-section card">
+                    <h3><i class="fas fa-chart-bar"></i> İstatistikler</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-number" id="totalFoodsCount">0</span>
+                            <span class="stat-label">Toplam Yemek</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="portionBasedCount">0</span>
+                            <span class="stat-label">Porsiyon Bazlı</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="filteredCount">0</span>
+                            <span class="stat-label">Gösterilen</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ana Panel: Yemek Listesi ve Form -->
+            <div class="admin-main">
+                <!-- Toolbar -->
+                <div class="admin-toolbar">
+                    <button id="addNewFoodBtn" class="btn btn-success">
+                        <i class="fas fa-plus"></i> Yeni Yemek Ekle
+                    </button>
+                    
+                    <button id="refreshFoodsBtn" class="btn btn-primary">
+                        <i class="fas fa-sync-alt"></i> Yenile
+                    </button>
+                    
+                    <div class="view-options">
+                        <button id="listViewBtn" class="btn btn-outline active">
+                            <i class="fas fa-list"></i> Liste
+                        </button>
+                        <button id="gridViewBtn" class="btn btn-outline">
+                            <i class="fas fa-th-large"></i> Grid
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Yemek Listesi -->
+                <div class="foods-container">
+                    <div id="foodsList" class="foods-list">
+                        <!-- Yemekler buraya dinamik olarak eklenecek -->
+                    </div>
+                    
+                    <!-- Loading Indicator -->
+                    <div id="loadingIndicator" class="loading-indicator" style="display: none;">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <span>Yükleniyor...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Yemek Düzenleme Modal -->
+        <div id="foodModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modalTitle">Yeni Yemek Ekle</h3>
+                    <button class="modal-close" id="closeModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="modal-body">
+                    <form id="foodForm">
+                        <!-- Temel Bilgiler -->
+                        <div class="form-section">
+                            <h4>Temel Bilgiler</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="foodId">Yemek ID*:</label>
+                                    <input type="text" id="foodId" name="id" required>
+                                    <small>Benzersiz tanımlayıcı (örn: pilav_001)</small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="foodName">Yemek Adı*:</label>
+                                    <input type="text" id="foodName" name="name" required>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="foodPrice">Fiyat (₺)*:</label>
+                                    <input type="number" id="foodPrice" name="price" step="0.01" min="0" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="foodCalories">Kalori*:</label>
+                                    <input type="number" id="foodCalories" name="calories" min="0" required>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group checkbox-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="portionBased" name="portion_based">
+                                        <span class="checkmark"></span>
+                                        Porsiyon Bazlı Hesaplama
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Porsiyon Hesaplama Ayarları -->
+                        <div class="form-section" id="portionSettings" style="display: none;">
+                            <h4>Porsiyon Hesaplama Ayarları</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="baseHeight">Taban Yüksekliği (cm):</label>
+                                    <input type="number" id="baseHeight" name="base_height_cm" step="0.1">
+                                </div>
+                                <div class="form-group">
+                                    <label for="density">Yoğunluk (g/cm³):</label>
+                                    <input type="number" id="density" name="density_g_per_cm3" step="0.01">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="referenceMass">Referans Kütle (g):</label>
+                                    <input type="number" id="referenceMass" name="reference_mass_g" step="0.1">
+                                </div>
+                                <div class="form-group">
+                                    <label for="volumeMethod">Hacim Yöntemi:</label>
+                                    <select id="volumeMethod" name="volume_method">
+                                        <option value="">Seçiniz</option>
+                                        <option value="cylinder">Silindir</option>
+                                        <option value="sphere">Küre</option>
+                                        <option value="box">Kutu</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Besin Değerleri -->
+                        <div class="form-section">
+                            <h4>Besin Değerleri</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="protein">Protein:</label>
+                                    <input type="text" id="protein" name="nutrition.protein" placeholder="örn: 12g">
+                                </div>
+                                <div class="form-group">
+                                    <label for="carbs">Karbonhidrat:</label>
+                                    <input type="text" id="carbs" name="nutrition.carbs" placeholder="örn: 45g">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="fat">Yağ:</label>
+                                    <input type="text" id="fat" name="nutrition.fat" placeholder="örn: 8g">
+                                </div>
+                                <div class="form-group">
+                                    <label for="fiber">Lif:</label>
+                                    <input type="text" id="fiber" name="nutrition.fiber" placeholder="örn: 3g">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Malzemeler -->
+                        <div class="form-section">
+                            <h4>Malzemeler</h4>
+                            <div class="ingredients-list" id="ingredientsList">
+                                <div class="ingredient-item">
+                                    <input type="text" placeholder="Malzeme adı..." class="ingredient-input">
+                                    <button type="button" class="btn btn-danger btn-sm remove-ingredient">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="button" id="addIngredient" class="btn btn-secondary btn-sm">
+                                <i class="fas fa-plus"></i> Malzeme Ekle
+                            </button>
+                        </div>
+
+                        <!-- Alerjenler -->
+                        <div class="form-section">
+                            <h4>Alerjenler</h4>
+                            <div class="allergens-list" id="allergensList">
+                                <div class="allergen-item">
+                                    <input type="text" placeholder="Alerjen adı..." class="allergen-input">
+                                    <button type="button" class="btn btn-danger btn-sm remove-allergen">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="button" id="addAllergen" class="btn btn-secondary btn-sm">
+                                <i class="fas fa-plus"></i> Alerjen Ekle
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" id="cancelBtn" class="btn btn-secondary">İptal</button>
+                    <button type="submit" form="foodForm" id="saveFoodBtn" class="btn btn-success">
+                        <i class="fas fa-save"></i> Kaydet
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Silme Onay Modal -->
+        <div id="deleteModal" class="modal">
+            <div class="modal-content modal-small">
+                <div class="modal-header">
+                    <h3>Yemek Sil</h3>
+                    <button class="modal-close" id="closeDeleteModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p><strong id="deleteConfirmName"></strong> isimli yemeği silmek istediğinizden emin misiniz?</p>
+                    <p class="text-danger"><small>Bu işlem geri alınamaz!</small></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="cancelDeleteBtn" class="btn btn-secondary">İptal</button>
+                    <button type="button" id="confirmDeleteBtn" class="btn btn-danger">
+                        <i class="fas fa-trash"></i> Sil
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer Bölümü -->
+    <footer>
+        <div class="footer-container">
+            <div class="footer-section">
+                <h3>Admin Paneli</h3>
+                <p>Yemek veritabanı yönetim aracı ile sistemdeki tüm yemekleri yönetin.</p>
+            </div>
+            
+            <div class="footer-section">
+                <h3>Özellikler</h3>
+                <p>• Yemek ekleme/düzenleme/silme</p>
+                <p>• Besin değerleri yönetimi</p>
+                <p>• Porsiyon hesaplama ayarları</p>
+            </div>
+            
+            <div class="footer-section">
+                <h3>Yardım</h3>
+                <p>Sorun yaşadığınızda sistem yöneticisiyle iletişime geçin.</p>
+                <p>E-posta: admin@test.com</p>
+            </div>
+        </div>
+        <div class="copyright">
+            <p>&copy; 2025 Yemekhane Admin Paneli. Tüm hakları saklıdır.</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript Modülleri -->
+    <script src="js/modules/utils.js"></script>
+    <script src="js/modules/app_config.js"></script>
+    <script src="js/modules/websocket_manager.js"></script>
+    <script src="js/modules/admin/admin_websocket.js"></script>
+    <script src="js/modules/admin/admin_ui.js"></script>
+    <script src="js/modules/admin/admin_forms.js"></script>
+    <script src="js/modules/admin/admin_manager.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html> 
