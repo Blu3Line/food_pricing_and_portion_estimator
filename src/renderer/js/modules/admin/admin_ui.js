@@ -177,10 +177,13 @@ class AdminUIManager {
         const portionBadge = food.portion_based ? 
             '<span class="food-tag portion-based">Porsiyon Bazlı</span>' : '';
         
+        // Resim URL'si oluştur
+        const imageUrl = this.getFoodImageUrl(food);
+        
         return `
             <div class="food-card" data-food-id="${food.id}">
                 <div class="food-card-image">
-                    <i class="fas fa-utensils"></i>
+                    <img src="${imageUrl}" alt="${food.name}" onerror="this.onerror=null; this.src='assets/images/foods/default_thumb.jpg';">
                 </div>
                 <div class="food-card-content">
                     <div class="food-card-header">
@@ -190,7 +193,7 @@ class AdminUIManager {
                     <div class="food-card-details">
                         <span class="food-card-detail">
                             <i class="fas fa-lira-sign"></i>
-                            ${food.price.toFixed(2)} ₺
+                            ${food.price.toFixed(2)}
                         </span>
                         <span class="food-card-detail">
                             <i class="fas fa-fire"></i>
@@ -211,6 +214,12 @@ class AdminUIManager {
                 </div>
             </div>
         `;
+    }
+
+    getFoodImageUrl(food) {
+        // Use food name or ID to determine the image path
+        const foodName = food.name.toLowerCase().replace(/ /g, '_');
+        return `assets/images/foods/${foodName}_thumb.jpg`;
     }
     
     renderEmptyState() {
