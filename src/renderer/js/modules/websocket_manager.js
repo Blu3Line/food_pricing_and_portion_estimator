@@ -284,33 +284,6 @@ const WebSocketManager = (function() {
         }
     };
     
-    /**
-     * JSON veriyi WebSocket üzerinden gönderir
-     * @param {Object} data - Gönderilecek veri
-     * @returns {Promise} - İşlem sonucu
-     */
-    const sendJson = async (data) => {
-        // Bağlantı yoksa hata döndür
-        if (!isConnected || !socket) {
-            return Promise.reject(new Error('WebSocket bağlantısı yok'));
-        }
-        
-        return new Promise((resolve, reject) => {
-            try {
-                const jsonString = JSON.stringify(data);
-                socket.send(jsonString);
-                resolve(true);
-            } catch (error) {
-                console.error('Veri gönderme hatası:', error);
-                
-                if (onErrorCallback) {
-                    onErrorCallback(error, 'send');
-                }
-                
-                reject(error);
-            }
-        });
-    };
     
     /**
      * Görüntü verilerini WebSocket üzerinden gönderir ve cevap bekler
@@ -389,6 +362,7 @@ const WebSocketManager = (function() {
                 
                 // İsteği gönder
                 const jsonString = JSON.stringify(message);
+                console.log('📤 CLIENT REQUEST JSON:', jsonString);
                 socket.send(jsonString);
                 
             } catch (error) {
@@ -534,7 +508,6 @@ const WebSocketManager = (function() {
         init,
         connect,
         disconnect,
-        sendJson,
         sendImage,
         startWebcamStream,
         isConnected: checkConnection,
