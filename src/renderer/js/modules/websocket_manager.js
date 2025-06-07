@@ -305,13 +305,17 @@ const WebSocketManager = (function() {
                 const confidenceValue = config.confidence || 0.5;
                 console.log("🔍 WebSocket Manager - Gelen config:", config, "Kullanılacak confidence:", confidenceValue);
                 
+                const finalConfig = {
+                    confidence: confidenceValue,
+                    ...config
+                };
+                
+                console.log("📦 WebSocket Manager - Gönderilecek final config:", finalConfig);
+                
                 const message = {
                     type: type,
                     data: processedImageData,
-                    config: {
-                        confidence: confidenceValue,
-                        ...config
-                    }
+                    config: finalConfig
                 };
                 
                 // Message ID için listener

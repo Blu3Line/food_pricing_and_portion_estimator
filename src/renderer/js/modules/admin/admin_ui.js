@@ -29,7 +29,8 @@ class AdminUIManager {
             gridViewBtn: document.getElementById('gridViewBtn'),
             totalFoodsCount: document.getElementById('totalFoodsCount'),
             portionBasedCount: document.getElementById('portionBasedCount'),
-            filteredCount: document.getElementById('filteredCount')
+            filteredCount: document.getElementById('filteredCount'),
+            portionCalculationToggle: document.getElementById('portionCalculationToggle')
         };
         
         this.init();
@@ -81,6 +82,13 @@ class AdminUIManager {
         
         if (this.elements.gridViewBtn) {
             this.elements.gridViewBtn.addEventListener('click', () => this.setView('grid'));
+        }
+        
+        // Porsiyon hesaplama toggle
+        if (this.elements.portionCalculationToggle) {
+            this.elements.portionCalculationToggle.addEventListener('change', () => {
+                this.handlePortionCalculationToggle();
+            });
         }
     }
     
@@ -396,6 +404,32 @@ class AdminUIManager {
         setTimeout(() => {
             notification.remove();
         }, 3000);
+    }
+    
+    handlePortionCalculationToggle() {
+        if (this.elements.portionCalculationToggle) {
+            const isEnabled = this.elements.portionCalculationToggle.checked;
+            
+            // AppConfig'i güncelle
+            if (window.AppConfig) {
+                window.AppConfig.setPortionCalculationEnabled(isEnabled);
+            }
+            
+            // Kullanıcıya bilgi ver
+            this.showNotification(
+                `Porsiyon hesaplama ${isEnabled ? 'aktif edildi' : 'deaktif edildi'}`, 
+                'success'
+            );
+            
+            console.log('⚖️ Porsiyon hesaplama durumu değişti:', isEnabled);
+        }
+    }
+    
+    // AppConfig'den durumu yükle
+    loadPortionCalculationState() {
+        if (this.elements.portionCalculationToggle && window.AppConfig) {
+            this.elements.portionCalculationToggle.checked = window.AppConfig.portionCalculationEnabled;
+        }
     }
 }
 

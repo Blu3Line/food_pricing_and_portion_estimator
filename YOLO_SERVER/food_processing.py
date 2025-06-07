@@ -29,7 +29,7 @@ def create_generic_food_info(class_name, confidence):
     }
 
 # Görüntü işleme ve segmentasyon
-async def process_image(model, image, food_database, confidence_threshold=0.5, filter_classes=None):
+async def process_image(model, image, food_database, confidence_threshold=0.5, filter_classes=None, enable_portion_calculation=True):
     """
     Process image to detect and analyze food items
     TR: Görüntüyü tespit edip analiz eder.
@@ -118,8 +118,8 @@ async def process_image(model, image, food_database, confidence_threshold=0.5, f
             #TODO: classların isimleriyle aşağıdak kodlar uyuşuyor mu bakılacak.
             normalized_class = detection['class'].lower().replace(' ', '_')
             
-            # Porsiyon bazlı mı kontrol et
-            if 'portion_based' in food_info and food_info['portion_based']:
+            # Porsiyon hesaplama kontrolü
+            if enable_portion_calculation and 'portion_based' in food_info and food_info['portion_based']:
                 # Segmentasyon geometrisini analiz et
                 geometry_info = analyze_segment_geometry(detection["segments"])
                 
@@ -179,7 +179,8 @@ async def process_image(model, image, food_database, confidence_threshold=0.5, f
                 total_price += food_info['portion_price']
                 total_calories += food_info['calories']
             else:
-                # Porsiyon bazlı olmayan yiyecekler için direkt fiyat ve kalori kullan
+                # Porsiyon hesaplama deaktif veya porsiyon bazlı olmayan yiyecekler için standart değerleri kullan
+                print(f"{food_info['name']} için porsiyon hesaplama {'deaktif' if not enable_portion_calculation else 'porsiyon bazlı değil'}")
                 total_price += food_info['price']
                 total_calories += food_info['calories']
         

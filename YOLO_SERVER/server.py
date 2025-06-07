@@ -32,17 +32,6 @@ async def websocket_handler(websocket, model):
             return
         
         
-        '''
-        Client'ten beklenen mesaj formatı:
-        {
-            "type": "image",// veya "webcam"
-            "data": "base64_encoded_image_data", // Görüntü verisi
-            "config": {
-                "confidence": 0.5, // Tespit eşiği örneğin 0.5
-                "classes": [] // Filtrelenecek sınıflar (boş ise tümü)
-            }
-        }
-        '''
         # Process messages
         async for message in websocket:
             try:
@@ -71,6 +60,10 @@ async def websocket_handler(websocket, model):
                     config = data.get('config', {})
                     confidence = config.get('confidence', 0.5)
                     classes = config.get('classes', None)
+                    enable_portion_calculation = config.get('enablePortionCalculation', True)
+                    
+                    # Debug log
+                    print(f"📦 Config: confidence={confidence}, porsiyon_hesaplama={'✅' if enable_portion_calculation else '❌'}")
                     
                     # Görüntüyü dönüştür
                     img = base64_to_image(data['data'])
@@ -82,7 +75,7 @@ async def websocket_handler(websocket, model):
                         continue
                     
                     # Görüntüyü işle
-                    result = await process_image(model, img, FOOD_DATABASE, confidence, classes)
+                    result = await process_image(model, img, FOOD_DATABASE, confidence, classes, enable_portion_calculation)
                     
                     # Sonuçları gönder
                     await websocket.send(json.dumps(result))

@@ -673,13 +673,18 @@ const CameraModule = (function() {
         
         // WebSocket bağlantısı var mı kontrol et
         if (websocketEnabled && WebSocketManager.isConnected()) {
-            try {
-                console.log('🎯 Camera Module - WebSocket\'e gönderilecek confidence:', AppConfig.confidenceThreshold);
+            try {          
+                const configToSend = { 
+                    confidence: AppConfig.confidenceThreshold,
+                    enablePortionCalculation: AppConfig.portionCalculationEnabled 
+                };
+                console.log('📋 Camera Module - Gönderilecek config:', configToSend);
+                
                 // Resim verilerini WebSocket üzerinden gönder
                 const response = await WebSocketManager.sendImage(
                     resultImage.src, 
                     'image', 
-                    { confidence: AppConfig.confidenceThreshold }
+                    configToSend
                 );
                 
                 if (response.success) {
@@ -768,6 +773,7 @@ const CameraModule = (function() {
                 // Konfigürasyon
                 {
                     confidence: AppConfig.confidenceThreshold,
+                    enablePortionCalculation: AppConfig.portionCalculationEnabled,
                     // Sonuç callback'i
                     onResult: (response) => {
                         // Tespit sonuç canvas'ını güncelle
@@ -865,7 +871,10 @@ const CameraModule = (function() {
                     const response = await WebSocketManager.sendImage(
                         frameData, 
                         'webcam', 
-                        { confidence: AppConfig.confidenceThreshold }
+                        { 
+                            confidence: AppConfig.confidenceThreshold,
+                            enablePortionCalculation: AppConfig.portionCalculationEnabled 
+                        }
                     );
                     
                     // Tespit sonuç canvas'ını güncelle

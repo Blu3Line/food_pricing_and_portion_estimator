@@ -59,13 +59,17 @@ const FoodDetectionModule = (function() {
         
         // 1. WebSocket ile tespit dene (bağlantı varsa)
         if (websocketEnabled && WebSocketManager.isConnected()) {
-            try {
-                console.log("WebSocket ile tespit deneniyor...");
-                console.log("🎯 Gönderilecek confidence değeri:", AppConfig.confidenceThreshold);
+            try {   
+                const configToSend = { 
+                    confidence: AppConfig.confidenceThreshold,
+                    enablePortionCalculation: AppConfig.portionCalculationEnabled 
+                };
+                console.log("📋 Food Detection - Gönderilecek config:", configToSend);
+                
                 const response = await WebSocketManager.sendImage(
                     imageDataOrResult, 
                     'image', 
-                    { confidence: AppConfig.confidenceThreshold }
+                    configToSend
                 );
                 
                 if (response.success) {
@@ -101,10 +105,16 @@ const FoodDetectionModule = (function() {
         // 1. WebSocket bağlantısı varsa onu kullan
         if (websocketEnabled && WebSocketManager.isConnected()) {
             try {
+                const configToSend = { 
+                    confidence: AppConfig.confidenceThreshold,
+                    enablePortionCalculation: AppConfig.portionCalculationEnabled 
+                };
+                console.log("📋 Food Detection (WebCam) - Gönderilecek config:", configToSend);
+                
                 const response = await WebSocketManager.sendImage(
                     frameData,
                     isRealtime ? 'webcam' : 'image',
-                    { confidence: AppConfig.confidenceThreshold }
+                    configToSend
                 );
                 
                 if (response.success) {

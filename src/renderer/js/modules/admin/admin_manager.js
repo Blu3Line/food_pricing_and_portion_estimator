@@ -33,10 +33,25 @@ class AdminManager {
         
         console.log('Admin modülleri başarıyla yüklendi');
         
+        // AppConfig'i yükle ve toggle state'ini ayarla
+        this.loadAppConfig();
+        
         // Admin panel açıldığında otomatik bağlan
         this.autoConnectOnPageLoad();
     }
     
+    async loadAppConfig() {
+        // AppConfig'i Electron'dan yükle
+        if (window.AppConfig) {
+            await window.AppConfig.loadFromElectron();
+            
+            // UI'daki toggle durumunu güncelle
+            if (this.uiManager) {
+                this.uiManager.loadPortionCalculationState();
+            }
+        }
+    }
+
     autoConnectOnPageLoad() {
         // Sayfa admin paneli ise otomatik bağlan
         if (document.body.getAttribute('data-page-type') === 'admin') {
