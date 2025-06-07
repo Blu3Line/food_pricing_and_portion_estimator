@@ -515,12 +515,12 @@ class AdminFormsManager {
             errors.push('Yemek adı gerekli');
         }
         
-        if (formData.price <= 0) {
-            errors.push('Geçerli bir fiyat giriniz');
+        if (formData.price < 0 || isNaN(formData.price)) {
+            errors.push('Geçerli bir fiyat giriniz (0 veya pozitif değer)');
         }
         
-        if (formData.calories <= 0) {
-            errors.push('Geçerli bir kalori değeri giriniz');
+        if (formData.calories < 0 || isNaN(formData.calories)) {
+            errors.push('Geçerli bir kalori değeri giriniz (0 veya pozitif değer)');
         }
         
         return errors;
