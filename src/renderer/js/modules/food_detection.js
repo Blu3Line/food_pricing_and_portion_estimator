@@ -1,6 +1,6 @@
 /**
  * Yemek Tanıma Modülü - Sadeleştirilmiş Versiyon
- * WebSocket entegrasyonu ve SimulationModule entegrasyonu içerir
+ * WebSocket entegrasyonu içerir
  * Gereksiz Electron API referansları kaldırıldı
  */
 const FoodDetectionModule = (function() {
@@ -23,13 +23,7 @@ const FoodDetectionModule = (function() {
         websocketEnabled = typeof WebSocketManager !== 'undefined';
         console.log(`WebSocket entegrasyonu: ${websocketEnabled ? 'Aktif' : 'Pasif'}`);
         
-        // Simülasyon modülünü başlat
-        if (typeof SimulationModule !== 'undefined') {
-            SimulationModule.init({
-                confidenceThreshold: AppConfig.confidenceThreshold
-            });
-            console.log("Simülasyon modülü başlatıldı, confidence:", AppConfig.confidenceThreshold);
-        }
+
         
         return true;
     };
@@ -92,32 +86,8 @@ const FoodDetectionModule = (function() {
             }
         }
         
-        // 2. Doğrudan simülasyon modülünü kullan (WebSocket yoksa/başarısızsa)
-        if (typeof SimulationModule !== 'undefined') {
-            console.log("Simülasyon modülü kullanılıyor...");
-            console.log("🎯 Simülasyon'a gönderilecek confidence değeri:", AppConfig.confidenceThreshold);
-            try {
-                const simResult = await SimulationModule.simulateDetection({
-                    confidence: AppConfig.confidenceThreshold
-                });
-                console.log("Simülasyon sonuçları:", simResult);
-                
-                // Simülasyon'dan gelen toplam değerleri kaydet
-                if (simResult.total_price !== undefined) {
-                    backendTotals.totalPrice = simResult.total_price;
-                }
-                if (simResult.total_calories !== undefined) {
-                    backendTotals.totalCalories = simResult.total_calories;
-                }
-                
-                return processDetectionResults(simResult.data);
-            } catch (error) {
-                console.error("Simülasyon başarısız:", error);
-            }
-        }
-        
-        // Hiçbir yöntem çalışmadıysa boş liste döndür
-        console.error("Hiçbir tespit yöntemi çalışmadı!");
+        // WebSocket çalışmadıysa hata döndür
+        console.error("WebSocket bağlantısı gerekli!");
         return [];
     };
     
@@ -158,36 +128,10 @@ const FoodDetectionModule = (function() {
             }
         }
         
-        // 2. Simülasyon modülünü kullan
-        if (typeof SimulationModule !== 'undefined') {
-            try {
-                const response = isRealtime ? 
-                    await SimulationModule.simulateRealtimeDetection({ confidence: AppConfig.confidenceThreshold }) :
-                    await SimulationModule.simulateDetection({ confidence: AppConfig.confidenceThreshold });
-                
-                // Simülasyon'dan gelen toplam değerleri kaydet
-                if (response.total_price !== undefined) {
-                    backendTotals.totalPrice = response.total_price;
-                }
-                if (response.total_calories !== undefined) {
-                    backendTotals.totalCalories = response.total_calories;
-                }
-                
-                return {
-                    success: true,
-                    data: response.data,
-                    processingTime: response.processing_time || 0,
-                    isSimulation: true
-                };
-            } catch (error) {
-                console.error("Simülasyon tespiti başarısız:", error);
-            }
-        }
-        
-        // Başarısız olursa hata objesi döndür
+        // WebSocket çalışmadıysa hata döndür
         return {
             success: false,
-            error: "Tespit için desteklenen bir yöntem bulunamadı",
+            error: "WebSocket bağlantısı gerekli",
             data: []
         };
     };

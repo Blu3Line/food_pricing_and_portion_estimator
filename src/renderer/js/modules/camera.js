@@ -702,56 +702,18 @@ const CameraModule = (function() {
                     detectedItemsEl.innerHTML = '<li class="error-item">Tespit sırasında bir hata oluştu. Bağlantınızı kontrol edin.</li>';
                 }
                 
-                // Hata durumunda SimulationModule'e geri dön (eğer varsa)
-                if (typeof SimulationModule !== 'undefined') {
-                    useSimulationFallback(resultImage.src);
-                }
+
             }
-        } else if (typeof SimulationModule !== 'undefined') {
-            // WebSocket bağlantısı yoksa SimulationModule kullan
-            useSimulationFallback(resultImage.src);
         } else {
-            // Ne WebSocket ne de SimulationModule yoksa hata göster
-            console.error('Yemek tespiti için hiçbir mekanizma bulunamadı');
+            // WebSocket bağlantısı yoksa hata göster
+            console.error('WebSocket bağlantısı gerekli');
             if (detectedItemsEl) {
-                detectedItemsEl.innerHTML = '<li class="error-item">Tespit sistemi kullanılamıyor. Lütfen bağlantı durumunu kontrol edin.</li>';
+                detectedItemsEl.innerHTML = '<li class="error-item">WebSocket bağlantısı gerekli. Lütfen bağlantı durumunu kontrol edin.</li>';
             }
         }
     };
     
-    /**
-     * Yedek olarak SimulationModule'ü kullanır
-     * @param {string} imageData - Base64 formatında resim verisi
-     */
-    const useSimulationFallback = async (imageData) => {
-        try {
-            const detectedItemsEl = document.getElementById('detectedItems');
-            if (detectedItemsEl) {
-                detectedItemsEl.innerHTML += '<li>WebSocket bağlantısı kurulamadı, simülasyon modu kullanılıyor...</li>';
-            }
-            
-            // Simülasyon modülüyle tespit yap
-            const response = await SimulationModule.simulateDetection({
-                confidence: AppConfig.confidenceThreshold
-            });
-            
-            if (response.success) {
-                // Görüntünün üzerine tespitleri çiz - VisualizationModule kullan
-                await VisualizationModule.displayDetectionsOnImage(resultImage, response.data);
-            }
-            
-            // Tespit sonuçlarını işle
-            if (imageAnalysisCallback) {
-                imageAnalysisCallback(response);
-            }
-        } catch (error) {
-            console.error('Simülasyon tespiti hatası:', error);
-            const detectedItemsEl = document.getElementById('detectedItems');
-            if (detectedItemsEl) {
-                detectedItemsEl.innerHTML = '<li class="error-item">Tespit sırasında bir hata oluştu. Lütfen tekrar deneyin.</li>';
-            }
-        }
-    };
+
     
     /**
      * Görüntüyü kaydet (Electron ortamı için)
@@ -943,44 +905,6 @@ const CameraModule = (function() {
                 } catch (error) {
                     console.error('Gerçek zamanlı tespit hatası:', error);
                     // Hata durumunda sessizce devam et, bir sonraki kare için yeniden dene
-                }
-            } else if (typeof SimulationModule !== 'undefined') {
-                // WebSocket bağlantısı yoksa simülasyon modülünü kullan
-                try {
-                    const response = await SimulationModule.simulateDetection({
-                        confidence: AppConfig.confidenceThreshold
-                    });
-                    
-                    // Tespit sonuç canvas'ını güncelle
-                    const detectionResultCanvas = document.getElementById('detectionResultCanvas');
-                    if (detectionResultCanvas && response.success) {
-                        // Canvas boyutlarını ayarla
-                        if (detectionResultCanvas.width !== realtimeVideo.videoWidth || 
-                            detectionResultCanvas.height !== realtimeVideo.videoHeight) {
-                            detectionResultCanvas.width = realtimeVideo.videoWidth;
-                            detectionResultCanvas.height = realtimeVideo.videoHeight;
-                        }
-                        
-                        // Video karesini canvas'a çiz
-                        const ctx = detectionResultCanvas.getContext('2d');
-                        ctx.clearRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
-                        ctx.drawImage(realtimeVideo, 0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
-                        
-                        // Tespitleri çiz
-                        if (response.data && response.data.length > 0) {
-                            VisualizationModule.renderDetections(detectionResultCanvas, response.data);
-                        } else {
-                            // Tespit yoksa mesaj göster
-                            VisualizationModule.displayMessage(detectionResultCanvas, 'Tespit bulunamadı (Simülasyon)');
-                        }
-                    }
-                    
-                    // Tespit sonuçlarını işle
-                    if (imageAnalysisCallback) {
-                        imageAnalysisCallback(response);
-                    }
-                } catch (error) {
-                    console.error('Gerçek zamanlı simülasyon tespiti hatası:', error);
                 }
             }
             
