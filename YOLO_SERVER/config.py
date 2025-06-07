@@ -21,14 +21,14 @@ DEFAULT_IMAGE_SIZE = 640
 # Referans nesne boyutları (cm cinsinden)
 REFERENCE_OBJECTS = {
     "catal": {
-        "length": 19.0,  # Çatal uzunluğu (cm)
+        "length": 19.5,  # Çatal uzunluğu (cm)
         "width": 2.5,    # Çatal genişliği (cm)
-        "area": 15.0     # Yaklaşık alan (cm²)
+        "area": 48.75     # Yaklaşık alan (cm²)
     },
     "kasik": {
         "length": 19.5,  # Kaşık uzunluğu (cm)
         "width": 4.5,    # Kaşık genişliği (cm)
-        "area": 15.0     # Yaklaşık alan (cm²)
+        "area": 87.75     # Yaklaşık alan (cm²)
     }
 }
 

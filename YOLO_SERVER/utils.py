@@ -195,6 +195,10 @@ def pixel_area_to_cm2(pixel_area, scale_factor):
     Convert pixel area to cm²
     TR: Piksel alanını cm² cinsine dönüştürür.
     """
+    if scale_factor is None:
+        # Eğer scale_factor yoksa, varsayılan bir değer kullan (örneğin 1 piksel = 0.1 cm²)
+        print("UYARI: scale_factor None, varsayılan değer kullanılıyor (1 piksel = 0.1 cm²)")
+        scale_factor = 0.1
     return pixel_area * scale_factor
 
 # Hacim hesaplama (food_volume = real_food_area_cm2 * food_height_cm)
@@ -267,6 +271,7 @@ def calculate_scale_factor_from_bbox_area(reference_objects):
     if scale_factors:
         return statistics.median(scale_factors)
     # Eğer referans nesne yoksa None döndür
+    print("UYARI: Geçerli referans nesnesi bulunamadı - ölçek faktörü hesaplanamıyor")
     return None
 
 # Besin değerlerini porsiyona göre güncelleme

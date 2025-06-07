@@ -143,7 +143,11 @@ class AdminUIManager {
             // Porsiyon tipi filtresi
             if (this.currentFilters.portionBased !== '') {
                 const isPortionBased = this.currentFilters.portionBased === 'true';
-                if (food.portion_based !== isPortionBased) {
+                
+                // Veri tipini normalize et: 1/0 -> true/false
+                const foodPortionBased = Boolean(food.portion_based);
+                
+                if (foodPortionBased !== isPortionBased) {
                     return false;
                 }
             }
@@ -236,11 +240,17 @@ class AdminUIManager {
                 <i class="fas fa-search"></i>
                 <h3>Yemek Bulunamadı</h3>
                 <p>Aradığınız kriterlere uygun yemek bulunamadı.</p>
-                <button class="btn btn-primary" onclick="AdminUIManager.clearFilters()">
+                <button id="emptyStateClearFilters" class="btn btn-primary">
                     Filtreleri Temizle
                 </button>
             </div>
         `;
+        
+        // Event listener ekle
+        const clearBtn = document.getElementById('emptyStateClearFilters');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => this.clearFilters());
+        }
     }
     
     bindFoodCardEvents() {
