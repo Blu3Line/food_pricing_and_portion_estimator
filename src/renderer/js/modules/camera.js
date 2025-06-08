@@ -19,6 +19,9 @@ const CameraModule = (function() {
     let realtimeProcessing = false; // Gerçek zamanlı işlem devam ediyor mu?
     let realtimeAnalysisInterval = null; // Gerçek zamanlı analiz zamanlayıcısı
     let realtimeStreamController = null; // WebSocket stream controller
+    let detectionFrozen = false; // Tespit kilitleme durumu
+    let lastDetectionResult = null; // Son tespit sonucu (kilitleme için)
+    let frozenFrameData = null; // Donmuş video karesi verisi
 
     /**
      * Modülü başlatır ve gerekli DOM elementlerini yapılandırır
@@ -361,6 +364,12 @@ const CameraModule = (function() {
             stopRealtimeBtn.addEventListener('click', stopRealtimeMode);
         }
         
+        // Tespit kilitleme butonu için event listener
+        const freezeDetectionBtn = document.getElementById('freezeDetectionBtn');
+        if (freezeDetectionBtn) {
+            freezeDetectionBtn.addEventListener('click', toggleDetectionFreeze);
+        }
+        
         // Sonuç bölümü butonları için event listeners
         if (backToCamera) {
             backToCamera.addEventListener('click', () => {
@@ -507,6 +516,59 @@ const CameraModule = (function() {
     };
     
     /**
+     * Tespit kilitleme durumunu toggle eder
+     */
+    const toggleDetectionFreeze = () => {
+        detectionFrozen = !detectionFrozen;
+        const freezeBtn = document.getElementById('freezeDetectionBtn');
+        
+        if (detectionFrozen) {
+            // Tespiti kilitle - mevcut video karesini yakala
+            captureFrozenFrame();
+            freezeBtn.innerHTML = '<i class="fas fa-unlock"></i> Tespiti Serbest Bırak';
+            freezeBtn.classList.remove('btn-warning');
+            freezeBtn.classList.add('btn-info');
+            console.log('🔒 Tespit ve video karesi kilitlendi');
+        } else {
+            // Tespiti serbest bırak
+            freezeBtn.innerHTML = '<i class="fas fa-lock"></i> Tespiti Kilitle';
+            freezeBtn.classList.remove('btn-info');
+            freezeBtn.classList.add('btn-warning');
+            lastDetectionResult = null; // Cache'i temizle
+            frozenFrameData = null; // Donmuş kareyi temizle
+            console.log('🔓 Tespit ve video serbest bırakıldı');
+        }
+    };
+
+    /**
+     * Mevcut video karesini yakalar ve saklar
+     */
+    const captureFrozenFrame = () => {
+        if (!realtimeStreaming || !realtimeVideo) return;
+        
+        try {
+            // Geçici canvas oluştur
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = realtimeVideo.videoWidth;
+            tempCanvas.height = realtimeVideo.videoHeight;
+            
+            const context = tempCanvas.getContext('2d');
+            context.drawImage(realtimeVideo, 0, 0, tempCanvas.width, tempCanvas.height);
+            
+            // Kare verisini sakla
+            frozenFrameData = {
+                imageData: context.getImageData(0, 0, tempCanvas.width, tempCanvas.height),
+                width: tempCanvas.width,
+                height: tempCanvas.height
+            };
+            
+            console.log('📸 Video karesi donduruldu');
+        } catch (error) {
+            console.error('Video karesi yakalama hatası:', error);
+        }
+    };
+
+    /**
      * Gerçek zamanlı modu başlatır
      */
     const startRealtimeMode = async () => {
@@ -528,6 +590,7 @@ const CameraModule = (function() {
             document.getElementById('realtimePlaceholder').style.display = 'none';
             document.getElementById('startRealtimeBtn').style.display = 'none';
             document.getElementById('stopRealtimeBtn').style.display = 'inline-flex';
+            document.getElementById('freezeDetectionBtn').style.display = 'inline-flex';
             
             // Sonuç görüntüleme alanını göster
             const resultSection = document.getElementById('realtimeDetectionResult');
@@ -583,6 +646,18 @@ const CameraModule = (function() {
             document.getElementById('realtimePlaceholder').style.display = 'flex';
             document.getElementById('startRealtimeBtn').style.display = 'inline-flex';
             document.getElementById('stopRealtimeBtn').style.display = 'none';
+            document.getElementById('freezeDetectionBtn').style.display = 'none';
+            
+            // Freeze state'ini resetle
+            detectionFrozen = false;
+            lastDetectionResult = null;
+            frozenFrameData = null;
+            const freezeBtn = document.getElementById('freezeDetectionBtn');
+            if (freezeBtn) {
+                freezeBtn.innerHTML = '<i class="fas fa-lock"></i> Tespiti Kilitle';
+                freezeBtn.classList.remove('btn-info');
+                freezeBtn.classList.add('btn-warning');
+            }
             
             // Sonuç görüntüleme alanını gizle
             const resultSection = document.getElementById('realtimeDetectionResult');
@@ -776,7 +851,32 @@ const CameraModule = (function() {
                     enablePortionCalculation: AppConfig.portionCalculationEnabled,
                     // Sonuç callback'i
                     onResult: (response) => {
-                        // Tespit sonuç canvas'ını güncelle
+                        // Eğer tespit kilitlenmişse yeni sonuçları işleme
+                        if (detectionFrozen) {
+                            // Kilitli durumda donmuş kareyi ve son sonucu kullan
+                            if (lastDetectionResult && frozenFrameData) {
+                                const detectionResultCanvas = document.getElementById('detectionResultCanvas');
+                                if (detectionResultCanvas) {
+                                    // Canvas boyutlarını ayarla
+                                    if (detectionResultCanvas.width !== frozenFrameData.width || 
+                                        detectionResultCanvas.height !== frozenFrameData.height) {
+                                        detectionResultCanvas.width = frozenFrameData.width;
+                                        detectionResultCanvas.height = frozenFrameData.height;
+                                    }
+                                    
+                                    // Donmuş video karesini canvas'a çiz
+                                    const ctx = detectionResultCanvas.getContext('2d');
+                                    ctx.clearRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
+                                    ctx.putImageData(frozenFrameData.imageData, 0, 0);
+                                    
+                                    // Kilitli tespitleri çiz
+                                    VisualizationModule.renderDetections(detectionResultCanvas, lastDetectionResult.data);
+                                }
+                            }
+                            return; // Kilitli durumda yeni işlem yapma
+                        }
+                        
+                        // Normal durumda tespit sonuç canvas'ını güncelle
                         const detectionResultCanvas = document.getElementById('detectionResultCanvas');
                         if (detectionResultCanvas) {
                             if (response.success && response.data && response.data.length > 0) {
@@ -794,6 +894,9 @@ const CameraModule = (function() {
                                 
                                 // VisualizationModule ile tespitleri çiz
                                 VisualizationModule.renderDetections(detectionResultCanvas, response.data);
+                                
+                                // Son tespit sonucunu kaydet (kilitleme için)
+                                lastDetectionResult = response;
                                 
                                 // Callback'i çağır
                                 if (imageAnalysisCallback) {
@@ -851,6 +954,9 @@ const CameraModule = (function() {
     const captureAndAnalyzeRealtimeFrame = async () => {
         if (!realtimeStreaming || realtimeProcessing) return;
         
+        // Tespit kilitlenmişse yeni analiz yapma
+        if (detectionFrozen) return;
+        
         realtimeProcessing = true;
         
         try {
@@ -896,6 +1002,9 @@ const CameraModule = (function() {
                             // VisualizationModule ile tespitleri çiz
                             VisualizationModule.renderDetections(detectionResultCanvas, response.data);
                             
+                            // Son tespit sonucunu kaydet (kilitleme için)
+                            lastDetectionResult = response;
+                            
                             // Callback'i çağır
                             if (imageAnalysisCallback) {
                                 imageAnalysisCallback(response);
@@ -931,7 +1040,8 @@ const CameraModule = (function() {
         handleFiles,
         analyzePhoto,
         saveImage,
-        selectCamera
+        selectCamera,
+        toggleDetectionFreeze
     };
 })();
 
