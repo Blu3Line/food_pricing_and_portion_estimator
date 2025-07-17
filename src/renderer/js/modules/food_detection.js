@@ -1,14 +1,11 @@
 /**
  * Yemek Tanıma Modülü - Sadeleştirilmiş Versiyon
- * WebSocket entegrasyonu ve SimulationModule entegrasyonu içerir
+ * WebSocket entegrasyonu içerir
  * Gereksiz Electron API referansları kaldırıldı
  */
 const FoodDetectionModule = (function() {
-    // Modül ayarları
-    let settings = {
-        confidenceThreshold: 50, // Minimum güven eşiği (%)
-        websocketEnabled: false  // WebSocket entegrasyonu aktif mi?
-    };
+    // WebSocket entegrasyonu ayarı
+    let websocketEnabled = false;
 
     // Backend'den gelen toplam değerleri saklayan değişkenler
     let backendTotals = {
@@ -20,32 +17,15 @@ const FoodDetectionModule = (function() {
      * Modülü başlatır
      */
     const init = async () => {
-        console.log("Yemek tanıma modülü başlatıldı");
+        console.log("🍽️ FoodDetectionModule başlatıldı");
         
         // WebSocket entegrasyonunu kontrol et
-        settings.websocketEnabled = typeof WebSocketManager !== 'undefined';
-        console.log(`WebSocket entegrasyonu: ${settings.websocketEnabled ? 'Aktif' : 'Pasif'}`);
+        websocketEnabled = typeof WebSocketManager !== 'undefined';
+        console.log(`WebSocket entegrasyonu: ${websocketEnabled ? 'Aktif' : 'Pasif'}`);
         
-        // Electron ortamında ayarları yükle (sadece confidence threshold için)
-        if (window.environment && window.environment.isElectron && window.electronAPI) {
-            try {
-                const appSettings = await window.electronAPI.getSettings();
-                if (appSettings && appSettings.confidenceThreshold) {
-                    settings.confidenceThreshold = appSettings.confidenceThreshold * 100; // 0.7 -> 70
-                }
-                console.log("Tespit ayarları yüklendi:", settings);
-            } catch (error) {
-                console.error("Ayarlar yüklenirken hata:", error);
-            }
-        }
+
         
-        // Simülasyon modülünün hazır olduğundan emin ol
-        if (typeof SimulationModule !== 'undefined') {
-            SimulationModule.init({
-                confidenceThreshold: settings.confidenceThreshold / 100
-            });
-            console.log("Simülasyon modülü başlatıldı");
-        }
+        return true;
     };
 
     /**
@@ -78,13 +58,18 @@ const FoodDetectionModule = (function() {
         }
         
         // 1. WebSocket ile tespit dene (bağlantı varsa)
-        if (settings.websocketEnabled && WebSocketManager.isConnected()) {
-            try {
-                console.log("WebSocket ile tespit deneniyor...");
+        if (websocketEnabled && WebSocketManager.isConnected()) {
+            try {   
+                const configToSend = { 
+                    confidence: AppConfig.confidenceThreshold,
+                    enablePortionCalculation: AppConfig.portionCalculationEnabled 
+                };
+                console.log("📋 Food Detection - Gönderilecek config:", configToSend);
+                
                 const response = await WebSocketManager.sendImage(
                     imageDataOrResult, 
                     'image', 
-                    { confidence: settings.confidenceThreshold / 100 }
+                    configToSend
                 );
                 
                 if (response.success) {
@@ -105,31 +90,8 @@ const FoodDetectionModule = (function() {
             }
         }
         
-        // 2. Doğrudan simülasyon modülünü kullan (WebSocket yoksa/başarısızsa)
-        if (typeof SimulationModule !== 'undefined') {
-            console.log("Simülasyon modülü kullanılıyor...");
-            try {
-                const simResult = await SimulationModule.simulateDetection({
-                    confidence: settings.confidenceThreshold / 100
-                });
-                console.log("Simülasyon sonuçları:", simResult);
-                
-                // Simülasyon'dan gelen toplam değerleri kaydet
-                if (simResult.total_price !== undefined) {
-                    backendTotals.totalPrice = simResult.total_price;
-                }
-                if (simResult.total_calories !== undefined) {
-                    backendTotals.totalCalories = simResult.total_calories;
-                }
-                
-                return processDetectionResults(simResult.data);
-            } catch (error) {
-                console.error("Simülasyon başarısız:", error);
-            }
-        }
-        
-        // Hiçbir yöntem çalışmadıysa boş liste döndür
-        console.error("Hiçbir tespit yöntemi çalışmadı!");
+        // WebSocket çalışmadıysa hata döndür
+        console.error("WebSocket bağlantısı gerekli!");
         return [];
     };
     
@@ -141,12 +103,18 @@ const FoodDetectionModule = (function() {
      */
     const detectFoodsViaWebSocket = async (frameData, isRealtime = false) => {
         // 1. WebSocket bağlantısı varsa onu kullan
-        if (settings.websocketEnabled && WebSocketManager.isConnected()) {
+        if (websocketEnabled && WebSocketManager.isConnected()) {
             try {
+                const configToSend = { 
+                    confidence: AppConfig.confidenceThreshold,
+                    enablePortionCalculation: AppConfig.portionCalculationEnabled 
+                };
+                console.log("📋 Food Detection (WebCam) - Gönderilecek config:", configToSend);
+                
                 const response = await WebSocketManager.sendImage(
                     frameData,
                     isRealtime ? 'webcam' : 'image',
-                    { confidence: settings.confidenceThreshold / 100 }
+                    configToSend
                 );
                 
                 if (response.success) {
@@ -170,36 +138,10 @@ const FoodDetectionModule = (function() {
             }
         }
         
-        // 2. Simülasyon modülünü kullan
-        if (typeof SimulationModule !== 'undefined') {
-            try {
-                const response = isRealtime ? 
-                    await SimulationModule.simulateRealtimeDetection({ confidence: settings.confidenceThreshold / 100 }) :
-                    await SimulationModule.simulateDetection({ confidence: settings.confidenceThreshold / 100 });
-                
-                // Simülasyon'dan gelen toplam değerleri kaydet
-                if (response.total_price !== undefined) {
-                    backendTotals.totalPrice = response.total_price;
-                }
-                if (response.total_calories !== undefined) {
-                    backendTotals.totalCalories = response.total_calories;
-                }
-                
-                return {
-                    success: true,
-                    data: response.data,
-                    processingTime: response.processing_time || 0,
-                    isSimulation: true
-                };
-            } catch (error) {
-                console.error("Simülasyon tespiti başarısız:", error);
-            }
-        }
-        
-        // Başarısız olursa hata objesi döndür
+        // WebSocket çalışmadıysa hata döndür
         return {
             success: false,
-            error: "Tespit için desteklenen bir yöntem bulunamadı",
+            error: "WebSocket bağlantısı gerekli",
             data: []
         };
     };
@@ -262,42 +204,14 @@ const FoodDetectionModule = (function() {
             };
             
             // Sadece eşik değeri üzerindeki tespitleri ekle
-            if (detectedFood.confidence >= settings.confidenceThreshold) {
+            const confidenceThresholdPercent = AppConfig.confidenceThreshold * 100; // 0.7 -> 70
+            if (detectedFood.confidence >= confidenceThresholdPercent) {
                 processedResults.push(detectedFood);
             }
         }
         
         // Güven skoruna göre sırala (yüksekten düşüğe)
         return processedResults.sort((a, b) => b.confidence - a.confidence);
-    };
-
-    /**
-     * Ayarları değiştirir
-     * @param {Object} newSettings - Yeni ayarlar
-     */
-    const updateSettings = async (newSettings) => {
-        if (newSettings.confidenceThreshold !== undefined) {
-            settings.confidenceThreshold = newSettings.confidenceThreshold;
-            
-            // Simülasyon modülü konfigürasyonunu da güncelle
-            if (typeof SimulationModule !== 'undefined') {
-                SimulationModule.updateConfig({
-                    confidenceThreshold: settings.confidenceThreshold / 100
-                });
-            }
-        }
-        
-        // Electron ortamında ayarları kaydet
-        if (window.environment && window.environment.isElectron && window.electronAPI) {
-            try {
-                await window.electronAPI.saveSettings({
-                    ...settings,
-                    confidenceThreshold: settings.confidenceThreshold / 100 // 70 -> 0.7
-                });
-            } catch (error) {
-                console.error("Ayarlar kaydedilirken hata:", error);
-            }
-        }
     };
 
     /**
@@ -308,14 +222,12 @@ const FoodDetectionModule = (function() {
         return { ...backendTotals };
     };
 
-    // Public API
+    // Public API (artık kendi settings'i yok, ConfigManager kullanıyor)
     return {
         init,
         detectFoodsFromImage,
         detectFoodsViaWebSocket,
-        updateSettings,
-        getSettings: () => ({ ...settings }), // Ayarların kopyasını döndür
-        getBackendTotals // Backend'den gelen toplam değerleri alma fonksiyonunu public API'ye eklendi
+        getBackendTotals
     };
 })();
 

@@ -1,7 +1,7 @@
 /**
  * WebSocket İletişim Modülü
  * YOLO sunucusuyla websocket iletişimini yöneten modül
- * SimulationModule entegrasyonu eklendi
+
  */
 const WebSocketManager = (function() {
     // Özel değişkenler
@@ -24,8 +24,7 @@ const WebSocketManager = (function() {
     // Bağlantı durumu göstergesi
     let connectionStatusElement = null;
     
-    // Simülasyon modu ayarları
-    let simulationModuleReady = false; // Simülasyon modülü başlatıldı mı?
+
     
     /**
      * WebSocket Manager'ı başlatır
@@ -48,8 +47,7 @@ const WebSocketManager = (function() {
         // Bağlantı durumu göstergesi
         connectionStatusElement = config.connectionStatusElement || null;
         
-        // Simülasyon modülünü başlat (eğer mevcutsa)
-        initSimulationIfAvailable();
+
         
         // Otomatik bağlantı yapılandırması
         if (config.autoConnect === true) {
@@ -64,19 +62,7 @@ const WebSocketManager = (function() {
         return true;
     };
     
-    /**
-     * Simülasyon modülünü başlatır (eğer mevcutsa)
-     */
-    const initSimulationIfAvailable = () => {
-        if (typeof SimulationModule !== 'undefined') {
-            SimulationModule.init({
-                confidenceThreshold: 0.5,
-                simulationDelay: 800
-            });
-            simulationModuleReady = true;
-            console.log('Simülasyon Modülü başlatıldı');
-        }
-    };
+
     
     /**
      * WebSocket sunucusuna bağlanır
@@ -234,7 +220,7 @@ const WebSocketManager = (function() {
     
     /**
      * Bağlantı durumunu günceller
-     * @param {string} status - Durum ('connected', 'disconnected', 'connecting', 'reconnecting', 'error', 'failed', 'simulation')
+     * @param {string} status - Durum ('connected', 'disconnected', 'connecting', 'reconnecting', 'error', 'failed')
      * @param {string} message - Durum mesajı
      */
     const updateConnectionStatus = (status, message) => {
@@ -247,8 +233,7 @@ const WebSocketManager = (function() {
             'status-connecting',
             'status-reconnecting',
             'status-error',
-            'status-failed',
-            'status-simulation'
+            'status-failed'
         );
         
         // Yeni duruma göre sınıf ekle
@@ -284,33 +269,6 @@ const WebSocketManager = (function() {
         }
     };
     
-    /**
-     * JSON veriyi WebSocket üzerinden gönderir
-     * @param {Object} data - Gönderilecek veri
-     * @returns {Promise} - İşlem sonucu
-     */
-    const sendJson = async (data) => {
-        // Bağlantı yoksa hata döndür
-        if (!isConnected || !socket) {
-            return Promise.reject(new Error('WebSocket bağlantısı yok'));
-        }
-        
-        return new Promise((resolve, reject) => {
-            try {
-                const jsonString = JSON.stringify(data);
-                socket.send(jsonString);
-                resolve(true);
-            } catch (error) {
-                console.error('Veri gönderme hatası:', error);
-                
-                if (onErrorCallback) {
-                    onErrorCallback(error, 'send');
-                }
-                
-                reject(error);
-            }
-        });
-    };
     
     /**
      * Görüntü verilerini WebSocket üzerinden gönderir ve cevap bekler
@@ -320,22 +278,6 @@ const WebSocketManager = (function() {
      * @returns {Promise} - Sunucu cevabı
      */
     const sendImage = async (imageData, type = 'image', config = {}) => {
-        // Bağlantı yoksa ve simülasyon modu etkinse, simülasyon yanıtı döndür
-        if ((!isConnected || !socket) && simulationModuleReady) {
-            console.log('WebSocket bağlantısı yok, simülasyon kullanılıyor');
-            
-            // Gerçek zamanlı mi yoksa normal mod mu kontrol et
-            if (type === 'webcam') {
-                return SimulationModule.simulateRealtimeDetection({
-                    confidence: config.confidence || 0.5
-                });
-            } else {
-                return SimulationModule.simulateDetection({
-                    confidence: config.confidence || 0.5
-                });
-            }
-        }
-        
         // Bağlantı yoksa hata döndür
         if (!isConnected || !socket) {
             return Promise.reject(new Error('WebSocket bağlantısı yok'));
@@ -360,13 +302,20 @@ const WebSocketManager = (function() {
                 }
                 
                 // JSON mesajı oluştur
+                const confidenceValue = config.confidence || 0.5;
+                console.log("🔍 WebSocket Manager - Gelen config:", config, "Kullanılacak confidence:", confidenceValue);
+                
+                const finalConfig = {
+                    confidence: confidenceValue,
+                    ...config
+                };
+                
+                console.log("📦 WebSocket Manager - Gönderilecek final config:", finalConfig);
+                
                 const message = {
                     type: type,
                     data: processedImageData,
-                    config: {
-                        confidence: config.confidence || 0.5,
-                        ...config
-                    }
+                    config: finalConfig
                 };
                 
                 // Message ID için listener
@@ -389,6 +338,14 @@ const WebSocketManager = (function() {
                 
                 // İsteği gönder
                 const jsonString = JSON.stringify(message);
+                
+                // Console için data kısmını kısaltılmış göster
+                const logMessage = {
+                    ...message,
+                    data: message.data ? `[BASE64_DATA:${message.data.length}_chars]` : null
+                };
+                console.log('📤 CLIENT REQUEST JSON:', JSON.stringify(logMessage));
+                
                 socket.send(jsonString);
                 
             } catch (error) {
@@ -419,9 +376,9 @@ const WebSocketManager = (function() {
         const start = () => {
             if (isActive) return false;
             
-            // Gerçek WebSocket bağlantısı veya simülasyon kontrolü
-            if (!isConnected && !simulationModuleReady) {
-                console.error('WebSocket bağlantısı yok ve simülasyon modülü hazır değil');
+            // WebSocket bağlantısı kontrolü
+            if (!isConnected) {
+                console.error('WebSocket bağlantısı yok');
                 return false;
             }
             
@@ -521,24 +478,16 @@ const WebSocketManager = (function() {
         return isConnected;
     };
     
-    /**
-     * Simülasyon modülünün hazır olup olmadığını kontrol eder
-     * @returns {boolean} - Simülasyon modülü hazır mı?
-     */
-    const isSimulationReady = () => {
-        return simulationModuleReady;
-    };
+
     
     // Public API
     return {
         init,
         connect,
         disconnect,
-        sendJson,
         sendImage,
         startWebcamStream,
-        isConnected: checkConnection,
-        isSimulationReady
+        isConnected: checkConnection
     };
 })();
 

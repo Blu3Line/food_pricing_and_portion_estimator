@@ -18,8 +18,10 @@ const CameraModule = (function() {
     let websocketEnabled = false; // WebSocket entegrasyonu aktif mi?
     let realtimeProcessing = false; // Gerçek zamanlı işlem devam ediyor mu?
     let realtimeAnalysisInterval = null; // Gerçek zamanlı analiz zamanlayıcısı
-    let confidenceThreshold = 0.5; // YOLO güven eşiği
     let realtimeStreamController = null; // WebSocket stream controller
+    let detectionFrozen = false; // Tespit kilitleme durumu
+    let lastDetectionResult = null; // Son tespit sonucu (kilitleme için)
+    let frozenFrameData = null; // Donmuş video karesi verisi
 
     /**
      * Modülü başlatır ve gerekli DOM elementlerini yapılandırır
@@ -111,18 +113,6 @@ const CameraModule = (function() {
         // WebSocket entegrasyonunu kontrol et
         websocketEnabled = typeof WebSocketManager !== 'undefined';
         
-        // Confidence slider dinleyicisini ekle
-        const confidenceSlider = document.getElementById('confidenceSlider');
-        if (confidenceSlider) {
-            confidenceSlider.addEventListener('input', (e) => {
-                confidenceThreshold = parseFloat(e.target.value);
-                // Değer göstergesini güncelle
-                const confidenceValue = document.getElementById('confidenceValue');
-                if (confidenceValue) {
-                    confidenceValue.textContent = `${Math.round(confidenceThreshold * 100)}%`;
-                }
-            });
-        }
 
         // Kamera listesini yükle (hem Electron hem tarayıcı ortamı için)
         try {
@@ -374,6 +364,12 @@ const CameraModule = (function() {
             stopRealtimeBtn.addEventListener('click', stopRealtimeMode);
         }
         
+        // Tespit kilitleme butonu için event listener
+        const freezeDetectionBtn = document.getElementById('freezeDetectionBtn');
+        if (freezeDetectionBtn) {
+            freezeDetectionBtn.addEventListener('click', toggleDetectionFreeze);
+        }
+        
         // Sonuç bölümü butonları için event listeners
         if (backToCamera) {
             backToCamera.addEventListener('click', () => {
@@ -386,15 +382,7 @@ const CameraModule = (function() {
             analyzePhotoBtn.addEventListener('click', analyzePhoto);
         }
         
-        // Confidence slider
-        const confidenceSlider = document.getElementById('confidenceSlider');
-        if (confidenceSlider) {
-            confidenceSlider.value = confidenceThreshold;
-            const confidenceValue = document.getElementById('confidenceValue');
-            if (confidenceValue) {
-                confidenceValue.textContent = `${Math.round(confidenceThreshold * 100)}%`;
-            }
-        }
+        // Confidence slider (artık ConfidenceSliderModule tarafından yönetiliyor, kaldırıldı)
         
         // Kamera seçici dropdown
         const cameraSelect = document.getElementById('cameraSelect');
@@ -528,6 +516,59 @@ const CameraModule = (function() {
     };
     
     /**
+     * Tespit kilitleme durumunu toggle eder
+     */
+    const toggleDetectionFreeze = () => {
+        detectionFrozen = !detectionFrozen;
+        const freezeBtn = document.getElementById('freezeDetectionBtn');
+        
+        if (detectionFrozen) {
+            // Tespiti kilitle - mevcut video karesini yakala
+            captureFrozenFrame();
+            freezeBtn.innerHTML = '<i class="fas fa-unlock"></i> Tespiti Serbest Bırak';
+            freezeBtn.classList.remove('btn-warning');
+            freezeBtn.classList.add('btn-info');
+            console.log('🔒 Tespit ve video karesi kilitlendi');
+        } else {
+            // Tespiti serbest bırak
+            freezeBtn.innerHTML = '<i class="fas fa-lock"></i> Tespiti Kilitle';
+            freezeBtn.classList.remove('btn-info');
+            freezeBtn.classList.add('btn-warning');
+            lastDetectionResult = null; // Cache'i temizle
+            frozenFrameData = null; // Donmuş kareyi temizle
+            console.log('🔓 Tespit ve video serbest bırakıldı');
+        }
+    };
+
+    /**
+     * Mevcut video karesini yakalar ve saklar
+     */
+    const captureFrozenFrame = () => {
+        if (!realtimeStreaming || !realtimeVideo) return;
+        
+        try {
+            // Geçici canvas oluştur
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = realtimeVideo.videoWidth;
+            tempCanvas.height = realtimeVideo.videoHeight;
+            
+            const context = tempCanvas.getContext('2d');
+            context.drawImage(realtimeVideo, 0, 0, tempCanvas.width, tempCanvas.height);
+            
+            // Kare verisini sakla
+            frozenFrameData = {
+                imageData: context.getImageData(0, 0, tempCanvas.width, tempCanvas.height),
+                width: tempCanvas.width,
+                height: tempCanvas.height
+            };
+            
+            console.log('📸 Video karesi donduruldu');
+        } catch (error) {
+            console.error('Video karesi yakalama hatası:', error);
+        }
+    };
+
+    /**
      * Gerçek zamanlı modu başlatır
      */
     const startRealtimeMode = async () => {
@@ -549,6 +590,7 @@ const CameraModule = (function() {
             document.getElementById('realtimePlaceholder').style.display = 'none';
             document.getElementById('startRealtimeBtn').style.display = 'none';
             document.getElementById('stopRealtimeBtn').style.display = 'inline-flex';
+            document.getElementById('freezeDetectionBtn').style.display = 'inline-flex';
             
             // Sonuç görüntüleme alanını göster
             const resultSection = document.getElementById('realtimeDetectionResult');
@@ -604,6 +646,18 @@ const CameraModule = (function() {
             document.getElementById('realtimePlaceholder').style.display = 'flex';
             document.getElementById('startRealtimeBtn').style.display = 'inline-flex';
             document.getElementById('stopRealtimeBtn').style.display = 'none';
+            document.getElementById('freezeDetectionBtn').style.display = 'none';
+            
+            // Freeze state'ini resetle
+            detectionFrozen = false;
+            lastDetectionResult = null;
+            frozenFrameData = null;
+            const freezeBtn = document.getElementById('freezeDetectionBtn');
+            if (freezeBtn) {
+                freezeBtn.innerHTML = '<i class="fas fa-lock"></i> Tespiti Kilitle';
+                freezeBtn.classList.remove('btn-info');
+                freezeBtn.classList.add('btn-warning');
+            }
             
             // Sonuç görüntüleme alanını gizle
             const resultSection = document.getElementById('realtimeDetectionResult');
@@ -694,12 +748,18 @@ const CameraModule = (function() {
         
         // WebSocket bağlantısı var mı kontrol et
         if (websocketEnabled && WebSocketManager.isConnected()) {
-            try {
+            try {          
+                const configToSend = { 
+                    confidence: AppConfig.confidenceThreshold,
+                    enablePortionCalculation: AppConfig.portionCalculationEnabled 
+                };
+                console.log('📋 Camera Module - Gönderilecek config:', configToSend);
+                
                 // Resim verilerini WebSocket üzerinden gönder
                 const response = await WebSocketManager.sendImage(
                     resultImage.src, 
                     'image', 
-                    { confidence: confidenceThreshold }
+                    configToSend
                 );
                 
                 if (response.success) {
@@ -722,56 +782,18 @@ const CameraModule = (function() {
                     detectedItemsEl.innerHTML = '<li class="error-item">Tespit sırasında bir hata oluştu. Bağlantınızı kontrol edin.</li>';
                 }
                 
-                // Hata durumunda SimulationModule'e geri dön (eğer varsa)
-                if (typeof SimulationModule !== 'undefined') {
-                    useSimulationFallback(resultImage.src);
-                }
+
             }
-        } else if (typeof SimulationModule !== 'undefined') {
-            // WebSocket bağlantısı yoksa SimulationModule kullan
-            useSimulationFallback(resultImage.src);
         } else {
-            // Ne WebSocket ne de SimulationModule yoksa hata göster
-            console.error('Yemek tespiti için hiçbir mekanizma bulunamadı');
+            // WebSocket bağlantısı yoksa hata göster
+            console.error('WebSocket bağlantısı gerekli');
             if (detectedItemsEl) {
-                detectedItemsEl.innerHTML = '<li class="error-item">Tespit sistemi kullanılamıyor. Lütfen bağlantı durumunu kontrol edin.</li>';
+                detectedItemsEl.innerHTML = '<li class="error-item">WebSocket bağlantısı gerekli. Lütfen bağlantı durumunu kontrol edin.</li>';
             }
         }
     };
     
-    /**
-     * Yedek olarak SimulationModule'ü kullanır
-     * @param {string} imageData - Base64 formatında resim verisi
-     */
-    const useSimulationFallback = async (imageData) => {
-        try {
-            const detectedItemsEl = document.getElementById('detectedItems');
-            if (detectedItemsEl) {
-                detectedItemsEl.innerHTML += '<li>WebSocket bağlantısı kurulamadı, simülasyon modu kullanılıyor...</li>';
-            }
-            
-            // Simülasyon modülüyle tespit yap
-            const response = await SimulationModule.simulateDetection({
-                confidence: confidenceThreshold
-            });
-            
-            if (response.success) {
-                // Görüntünün üzerine tespitleri çiz - VisualizationModule kullan
-                await VisualizationModule.displayDetectionsOnImage(resultImage, response.data);
-            }
-            
-            // Tespit sonuçlarını işle
-            if (imageAnalysisCallback) {
-                imageAnalysisCallback(response);
-            }
-        } catch (error) {
-            console.error('Simülasyon tespiti hatası:', error);
-            const detectedItemsEl = document.getElementById('detectedItems');
-            if (detectedItemsEl) {
-                detectedItemsEl.innerHTML = '<li class="error-item">Tespit sırasında bir hata oluştu. Lütfen tekrar deneyin.</li>';
-            }
-        }
-    };
+
     
     /**
      * Görüntüyü kaydet (Electron ortamı için)
@@ -825,10 +847,36 @@ const CameraModule = (function() {
                 200,
                 // Konfigürasyon
                 {
-                    confidence: confidenceThreshold,
+                    confidence: AppConfig.confidenceThreshold,
+                    enablePortionCalculation: AppConfig.portionCalculationEnabled,
                     // Sonuç callback'i
                     onResult: (response) => {
-                        // Tespit sonuç canvas'ını güncelle
+                        // Eğer tespit kilitlenmişse yeni sonuçları işleme
+                        if (detectionFrozen) {
+                            // Kilitli durumda donmuş kareyi ve son sonucu kullan
+                            if (lastDetectionResult && frozenFrameData) {
+                                const detectionResultCanvas = document.getElementById('detectionResultCanvas');
+                                if (detectionResultCanvas) {
+                                    // Canvas boyutlarını ayarla
+                                    if (detectionResultCanvas.width !== frozenFrameData.width || 
+                                        detectionResultCanvas.height !== frozenFrameData.height) {
+                                        detectionResultCanvas.width = frozenFrameData.width;
+                                        detectionResultCanvas.height = frozenFrameData.height;
+                                    }
+                                    
+                                    // Donmuş video karesini canvas'a çiz
+                                    const ctx = detectionResultCanvas.getContext('2d');
+                                    ctx.clearRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
+                                    ctx.putImageData(frozenFrameData.imageData, 0, 0);
+                                    
+                                    // Kilitli tespitleri çiz
+                                    VisualizationModule.renderDetections(detectionResultCanvas, lastDetectionResult.data);
+                                }
+                            }
+                            return; // Kilitli durumda yeni işlem yapma
+                        }
+                        
+                        // Normal durumda tespit sonuç canvas'ını güncelle
                         const detectionResultCanvas = document.getElementById('detectionResultCanvas');
                         if (detectionResultCanvas) {
                             if (response.success && response.data && response.data.length > 0) {
@@ -846,6 +894,9 @@ const CameraModule = (function() {
                                 
                                 // VisualizationModule ile tespitleri çiz
                                 VisualizationModule.renderDetections(detectionResultCanvas, response.data);
+                                
+                                // Son tespit sonucunu kaydet (kilitleme için)
+                                lastDetectionResult = response;
                                 
                                 // Callback'i çağır
                                 if (imageAnalysisCallback) {
@@ -903,6 +954,9 @@ const CameraModule = (function() {
     const captureAndAnalyzeRealtimeFrame = async () => {
         if (!realtimeStreaming || realtimeProcessing) return;
         
+        // Tespit kilitlenmişse yeni analiz yapma
+        if (detectionFrozen) return;
+        
         realtimeProcessing = true;
         
         try {
@@ -923,7 +977,10 @@ const CameraModule = (function() {
                     const response = await WebSocketManager.sendImage(
                         frameData, 
                         'webcam', 
-                        { confidence: confidenceThreshold }
+                        { 
+                            confidence: AppConfig.confidenceThreshold,
+                            enablePortionCalculation: AppConfig.portionCalculationEnabled 
+                        }
                     );
                     
                     // Tespit sonuç canvas'ını güncelle
@@ -945,6 +1002,9 @@ const CameraModule = (function() {
                             // VisualizationModule ile tespitleri çiz
                             VisualizationModule.renderDetections(detectionResultCanvas, response.data);
                             
+                            // Son tespit sonucunu kaydet (kilitleme için)
+                            lastDetectionResult = response;
+                            
                             // Callback'i çağır
                             if (imageAnalysisCallback) {
                                 imageAnalysisCallback(response);
@@ -964,44 +1024,6 @@ const CameraModule = (function() {
                     console.error('Gerçek zamanlı tespit hatası:', error);
                     // Hata durumunda sessizce devam et, bir sonraki kare için yeniden dene
                 }
-            } else if (typeof SimulationModule !== 'undefined') {
-                // WebSocket bağlantısı yoksa simülasyon modülünü kullan
-                try {
-                    const response = await SimulationModule.simulateDetection({
-                        confidence: confidenceThreshold
-                    });
-                    
-                    // Tespit sonuç canvas'ını güncelle
-                    const detectionResultCanvas = document.getElementById('detectionResultCanvas');
-                    if (detectionResultCanvas && response.success) {
-                        // Canvas boyutlarını ayarla
-                        if (detectionResultCanvas.width !== realtimeVideo.videoWidth || 
-                            detectionResultCanvas.height !== realtimeVideo.videoHeight) {
-                            detectionResultCanvas.width = realtimeVideo.videoWidth;
-                            detectionResultCanvas.height = realtimeVideo.videoHeight;
-                        }
-                        
-                        // Video karesini canvas'a çiz
-                        const ctx = detectionResultCanvas.getContext('2d');
-                        ctx.clearRect(0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
-                        ctx.drawImage(realtimeVideo, 0, 0, detectionResultCanvas.width, detectionResultCanvas.height);
-                        
-                        // Tespitleri çiz
-                        if (response.data && response.data.length > 0) {
-                            VisualizationModule.renderDetections(detectionResultCanvas, response.data);
-                        } else {
-                            // Tespit yoksa mesaj göster
-                            VisualizationModule.displayMessage(detectionResultCanvas, 'Tespit bulunamadı (Simülasyon)');
-                        }
-                    }
-                    
-                    // Tespit sonuçlarını işle
-                    if (imageAnalysisCallback) {
-                        imageAnalysisCallback(response);
-                    }
-                } catch (error) {
-                    console.error('Gerçek zamanlı simülasyon tespiti hatası:', error);
-                }
             }
             
         } catch (error) {
@@ -1018,7 +1040,8 @@ const CameraModule = (function() {
         handleFiles,
         analyzePhoto,
         saveImage,
-        selectCamera
+        selectCamera,
+        toggleDetectionFreeze
     };
 })();
 

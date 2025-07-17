@@ -1,7 +1,7 @@
 /**
  * Ana JavaScript Dosyası - Electron Versiyonu
  * WebSocket entegrasyonu ile güncellendi
- * SimulationModule entegrasyonu eklendi (otomatik mod)
+
  * Tüm modülleri birleştirir ve uygulamayı başlatır
  */
 document.addEventListener('DOMContentLoaded', async function() {
@@ -34,16 +34,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             TabsModule.init();
         }
 
-        // Simülasyon modülünü başlat (otomatik yedek mekanizma olarak çalışması için)
-        let simulationModuleReady = false;
-        if (typeof SimulationModule !== 'undefined') {
-            SimulationModule.init({
-                confidenceThreshold: 0.5,
-                simulationDelay: 800
-            });
-            simulationModuleReady = true;
-            console.log('Simülasyon modülü başlatıldı (otomatik yedekleme için)');
-        }
+
 
         // WebSocket bağlantı durumu elementi
         const connectionStatusElement = document.getElementById('websocketStatus');
@@ -84,28 +75,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                         wsConnectBtn.classList.add('btn-primary');
                     }
                     
-                    // Durum metnini güncelle - simülasyon modülü hazırsa
-                    if (connectionStatusElement && WebSocketManager.isSimulationReady()) {
-                        const statusText = connectionStatusElement.querySelector('span:last-child');
-                        if (statusText) {
-                            statusText.textContent = 'Bağlantı Yok (Simülasyon Modu)';
-                        }
-                        connectionStatusElement.classList.remove('status-disconnected');
-                        connectionStatusElement.classList.add('status-simulation');
-                    }
+
                 },
                 onError: (error, type) => {
                     console.error(`WebSocket hatası (${type}):`, error);
-                    
-                    // Hata durumunda, eğer simülasyon modülü hazırsa bunu belirt
-                    if (connectionStatusElement && WebSocketManager.isSimulationReady()) {
-                        const statusText = connectionStatusElement.querySelector('span:last-child');
-                        if (statusText) {
-                            statusText.textContent = 'Bağlantı Hatası (Simülasyon Modu)';
-                        }
-                        connectionStatusElement.classList.remove('status-error');
-                        connectionStatusElement.classList.add('status-simulation');
-                    }
                 }
             });
             
@@ -120,17 +93,13 @@ document.addEventListener('DOMContentLoaded', async function() {
                             await WebSocketManager.connect();
                         } catch (error) {
                             console.error('WebSocket bağlantı hatası:', error);
-                            alert('WebSocket sunucusuna bağlanılamadı. Simülasyon modu otomatik olarak etkinleştirildi.');
+                            alert('WebSocket sunucusuna bağlanılamadı.');
                         }
                     }
                 });
             }
             
-            // Simülasyon modu butonu artık kullanılmıyor (otomatik olarak başlatılıyor kullanıcıya bırakılmıyor)
-            const simulationToggleBtn = document.getElementById('simulationToggleBtn');
-            if (simulationToggleBtn) {
-                simulationToggleBtn.style.display = 'none';
-            }
+
         }
         
         // Görselleştirme modülünü başlat (varsa)
@@ -142,12 +111,35 @@ document.addEventListener('DOMContentLoaded', async function() {
             });
         }
         
+        // AppConfig'i Electron'dan yükle
+        await AppConfig.loadFromElectron();
+        
+        // Confidence Slider modülünü başlat
+        if (typeof ConfidenceSliderModule !== 'undefined') {
+            // AppConfig'den initial değer al
+            const initialValue = AppConfig.confidenceThreshold * 100; // 0.7 -> 70
+            
+            console.log('🎚️ Confidence slider başlatılıyor, initial value:', initialValue);
+            
+            // Slider modülünü başlat
+            ConfidenceSliderModule.init({
+                sliderId: 'confidenceSlider',
+                valueId: 'thresholdValue',
+                initialValue: initialValue,
+                onChange: (value) => {
+                    // AppConfig'i güncelle
+                    AppConfig.setConfidenceThreshold(value / 100); // 70 -> 0.7
+                }
+            });
+        }
+        
         // Yemek tanıma modülünü başlat
         let foodDetectionModuleReady = false;
         if (typeof FoodDetectionModule !== 'undefined') {
             try {
                 await FoodDetectionModule.init();
                 foodDetectionModuleReady = true;
+                console.log('🍽️ Yemek tanıma modülü başlatıldı');
             } catch (error) {
                 console.error('Yemek tanıma modülü başlatma hatası:', error);
             }
@@ -169,34 +161,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             foodListModuleReady = true;
         }
         
-        // Confidence Slider modülünü başlat
-        if (typeof ConfidenceSliderModule !== 'undefined') {
-            // Yemek tanıma modülünden başlangıç değerini al
-            let initialValue = 50; // Varsayılan değer
-            
-            if (foodDetectionModuleReady) {
-                const settings = FoodDetectionModule.getSettings();
-                initialValue = settings.confidenceThreshold;
-            }
-            
-            // Slider modülünü başlat
-            ConfidenceSliderModule.init({
-                sliderId: 'confidenceSlider',
-                valueId: 'thresholdValue',
-                initialValue: initialValue,
-                onChange: (value) => {
-                    // Değer değiştiğinde yemek tanıma modülüne bildir
-                    if (foodDetectionModuleReady) {
-                        FoodDetectionModule.updateSettings({
-                            confidenceThreshold: value
-                        });
-                    }
-                }
-            });
-        }
-        
-        // Kamera modülünü başlat ve görüntü analiz callback'i ayarla
+        // Kamera modülünü başlat
         if (typeof CameraModule !== 'undefined') {
+            console.log('📸 Kamera modülü başlatılıyor...');
             CameraModule.init(async function(imageDataOrResult) {
                 // Yükleme durumunu göster
                 const detectedItemsEl = document.getElementById('detectedItems');

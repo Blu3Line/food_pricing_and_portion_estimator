@@ -381,6 +381,13 @@ class DatabaseManager:
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
+                
+                # İlişkili verileri sil
+                cursor.execute('DELETE FROM nutrition WHERE food_id = ?', (food_id,))
+                cursor.execute('DELETE FROM ingredients WHERE food_id = ?', (food_id,))
+                cursor.execute('DELETE FROM allergens WHERE food_id = ?', (food_id,))
+                
+                # Ana yemek bilgisini sil
                 cursor.execute('DELETE FROM foods WHERE id = ?', (food_id,))
                 conn.commit()
                 return cursor.rowcount > 0

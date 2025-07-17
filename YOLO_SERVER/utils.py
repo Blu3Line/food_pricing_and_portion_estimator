@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 import statistics
 import math
-from YOLO_SERVER.config import REFERENCE_OBJECTS, DEFAULT_SCALE_FACTOR
+from YOLO_SERVER.config import REFERENCE_OBJECTS
 
 def load_food_database():
     """
@@ -195,6 +195,10 @@ def pixel_area_to_cm2(pixel_area, scale_factor):
     Convert pixel area to cm²
     TR: Piksel alanını cm² cinsine dönüştürür.
     """
+    if scale_factor is None:
+        # Eğer scale_factor yoksa, varsayılan bir değer kullan (örneğin 1 piksel = 0.1 cm²)
+        print("UYARI: scale_factor None, varsayılan değer kullanılıyor (1 piksel = 0.1 cm²)")
+        scale_factor = 0.1
     return pixel_area * scale_factor
 
 # Hacim hesaplama (food_volume = real_food_area_cm2 * food_height_cm)
@@ -263,11 +267,12 @@ def calculate_scale_factor_from_bbox_area(reference_objects):
                 scale_factor = ref_area_cm2 / bbox_area_px
                 scale_factors.append(scale_factor)
     
-    # Return median scale factor or default if none found
+    # Return median scale factor if reference objects found
     if scale_factors:
         return statistics.median(scale_factors)
-    # hiçbir referans nesne yoksa varsayılan ölçek faktörünü kullan (çatal veya kaşık yok)
-    return DEFAULT_SCALE_FACTOR
+    # Eğer referans nesne yoksa None döndür
+    print("UYARI: Geçerli referans nesnesi bulunamadı - ölçek faktörü hesaplanamıyor")
+    return None
 
 # Besin değerlerini porsiyona göre güncelleme
 def scale_nutrition_values(nutrition, portion):
